@@ -1,0 +1,253 @@
+/* ============================================================
+   Voya — Colors & Type
+   Travel more. Plan less.
+   ============================================================ */
+
+/* Body + accent fonts from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
+/* Display font from Fontshare (Clash Grotesk Variable — closest to "Clash Grotesk Rounded") */
+@import url('https://api.fontshare.com/v2/css?f[]=clash-grotesk@400,500,600,700&display=swap');
+
+:root {
+  /* -------- BRAND COLORS -------- */
+  --voya-ocean:        #378ADD;  /* Ocean Blue   – primary action / accent */
+  --voya-navy:         #0C447C;  /* Deep Navy    – headlines / dark surface */
+  --voya-amber:        #EF9F27;  /* Amber Orange – warmth / highlight / pin */
+  --voya-cream:        #F1EFE8;  /* Off-White    – page background */
+  --voya-sky:          #E6F2FB;  /* Sky Tint     – soft cool surface */
+  --voya-ink:          #2C2C2A;  /* Near Black   – body text */
+
+  /* -------- EXTENDED OCEAN -------- */
+  --voya-ocean-50:    #EAF3FC;
+  --voya-ocean-100:   #CFE3F8;
+  --voya-ocean-200:   #9FC7F1;
+  --voya-ocean-300:   #6FAAEA;
+  --voya-ocean-400:   #378ADD;   /* = ocean */
+  --voya-ocean-500:   #2978C9;
+  --voya-ocean-600:   #1E62AC;
+  --voya-ocean-700:   #144E8E;
+  --voya-ocean-800:   #0C447C;   /* = navy */
+  --voya-ocean-900:   #07304F;
+
+  /* -------- EXTENDED AMBER -------- */
+  --voya-amber-50:    #FDF3E1;
+  --voya-amber-100:   #FBE5BD;
+  --voya-amber-200:   #F6CD83;
+  --voya-amber-300:   #F2B650;
+  --voya-amber-400:   #EF9F27;   /* = amber */
+  --voya-amber-500:   #D8881A;
+  --voya-amber-600:   #B26C10;
+  --voya-amber-700:   #87520A;
+
+  /* -------- NEUTRALS (warm) -------- */
+  --voya-cream-50:    #FBFAF6;
+  --voya-cream-100:   #F6F4ED;
+  --voya-cream-200:   #F1EFE8;   /* = cream */
+  --voya-cream-300:   #E5E2D7;
+  --voya-cream-400:   #C9C5B6;
+  --voya-cream-500:   #9C9889;
+  --voya-cream-600:   #6E6B60;
+  --voya-cream-700:   #4A4842;
+  --voya-cream-800:   #2C2C2A;   /* = ink */
+  --voya-cream-900:   #1A1A19;
+
+  /* -------- SEMANTIC -------- */
+  --voya-success:     #2FA56A;
+  --voya-warning:     #EF9F27;
+  --voya-danger:      #E2553D;
+  --voya-info:        #378ADD;
+
+  /* -------- FOREGROUND (text) -------- */
+  --fg-1:             var(--voya-ink);          /* primary text */
+  --fg-2:             var(--voya-cream-700);    /* secondary text */
+  --fg-3:             var(--voya-cream-600);    /* tertiary / caption */
+  --fg-muted:         var(--voya-cream-500);    /* hint / placeholder */
+  --fg-on-dark:       var(--voya-cream);        /* text on navy */
+  --fg-on-accent:     #FFFFFF;                  /* text on ocean / amber */
+  --fg-link:          var(--voya-ocean-500);
+
+  /* -------- BACKGROUND (surface) -------- */
+  --bg-page:          var(--voya-cream);
+  --bg-surface:       #FFFFFF;
+  --bg-surface-2:     var(--voya-cream-100);
+  --bg-cool:          var(--voya-sky);          /* soft cool sky tile */
+  --bg-inverse:       var(--voya-navy);
+  --bg-overlay:       rgba(12, 68, 124, 0.55);
+
+  /* -------- BORDER -------- */
+  --border-soft:      rgba(44, 44, 42, 0.08);
+  --border-default:   rgba(44, 44, 42, 0.14);
+  --border-strong:    rgba(44, 44, 42, 0.24);
+  --border-focus:     var(--voya-ocean);
+
+  /* -------- DASHED ROUTE LINE (signature motif) -------- */
+  --route-color:      var(--voya-ocean);
+  --route-dash:       2px 5px;
+  --route-width:      2px;
+
+  /* -------- TYPE FAMILIES -------- */
+  /* Display: Clash Grotesk (Fontshare). Rounded version not freely available — Clash Grotesk
+     is the closest free match. Fall back through Plus Jakarta + Fredoka if Clash fails to load. */
+  --font-display:     'Clash Grotesk', 'Plus Jakarta Sans', 'Fredoka', system-ui, -apple-system, sans-serif;
+  /* Body: Plus Jakarta Sans */
+  --font-body:        'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Accent: Instrument Serif Italic — used sparingly for quotes / editorial moments */
+  --font-accent:      'Instrument Serif', 'Times New Roman', Georgia, serif;
+  --font-mono:        'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* -------- TYPE SCALE -------- */
+  --fs-display-xl:    72px;
+  --fs-display-lg:    56px;
+  --fs-display:       44px;
+  --fs-h1:            36px;
+  --fs-h2:            28px;
+  --fs-h3:            22px;
+  --fs-h4:            18px;
+  --fs-body-lg:       18px;
+  --fs-body:          16px;
+  --fs-body-sm:       14px;
+  --fs-caption:       13px;
+  --fs-micro:         11px;
+
+  --lh-tight:         1.05;
+  --lh-snug:          1.2;
+  --lh-normal:        1.45;
+  --lh-relaxed:       1.6;
+
+  --tracking-tight:   -0.02em;
+  --tracking-snug:    -0.01em;
+  --tracking-normal:  0;
+  --tracking-wide:    0.04em;
+  --tracking-ultra:   0.12em;     /* used for tiny caps eyebrows */
+
+  /* -------- WEIGHT -------- */
+  --w-regular:        400;
+  --w-medium:         500;
+  --w-semibold:       600;
+  --w-bold:           700;
+  --w-extrabold:      700;   /* Clash Grotesk caps at 700 */
+  --w-black:          700;   /* Clash Grotesk caps at 700 */
+
+  /* -------- SPACING (4-pt grid) -------- */
+  --space-0:    0;
+  --space-1:    4px;
+  --space-2:    8px;
+  --space-3:    12px;
+  --space-4:    16px;
+  --space-5:    20px;
+  --space-6:    24px;
+  --space-8:    32px;
+  --space-10:   40px;
+  --space-12:   48px;
+  --space-16:   64px;
+  --space-20:   80px;
+  --space-24:   96px;
+
+  /* -------- RADII (generously rounded — soft, friendly) -------- */
+  --radius-xs:  6px;
+  --radius-sm:  10px;
+  --radius-md:  14px;
+  --radius-lg:  20px;
+  --radius-xl:  28px;
+  --radius-2xl: 36px;
+  --radius-pill: 999px;
+
+  /* -------- SHADOWS (soft, warm, never harsh) -------- */
+  --shadow-xs:  0 1px 2px rgba(12, 68, 124, 0.06);
+  --shadow-sm:  0 2px 6px rgba(12, 68, 124, 0.08);
+  --shadow-md:  0 6px 18px rgba(12, 68, 124, 0.10);
+  --shadow-lg:  0 14px 36px rgba(12, 68, 124, 0.14);
+  --shadow-xl:  0 24px 60px rgba(12, 68, 124, 0.18);
+  --shadow-amber: 0 8px 24px rgba(239, 159, 39, 0.32);
+  --shadow-inset: inset 0 -2px 0 rgba(12, 68, 124, 0.10);
+
+  /* -------- MOTION -------- */
+  --ease-out:    cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast:    140ms;
+  --dur-base:    220ms;
+  --dur-slow:    420ms;
+}
+
+/* ============================================================
+   SEMANTIC TYPE CLASSES
+   ============================================================ */
+
+.voya-eyebrow {
+  font-family: var(--font-display);
+  font-weight: var(--w-extrabold);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--tracking-ultra);
+  text-transform: uppercase;
+  color: var(--voya-ocean);
+}
+
+.voya-display-xl,
+.voya-display-lg,
+.voya-display,
+.voya-h1, .voya-h2, .voya-h3, .voya-h4 {
+  font-family: var(--font-display);
+  color: var(--voya-navy);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.voya-display-xl { font-size: var(--fs-display-xl); font-weight: var(--w-black);     line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); }
+.voya-display-lg { font-size: var(--fs-display-lg); font-weight: var(--w-extrabold); line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); }
+.voya-display    { font-size: var(--fs-display);    font-weight: var(--w-extrabold); line-height: var(--lh-snug);  letter-spacing: var(--tracking-snug); }
+.voya-h1         { font-size: var(--fs-h1);         font-weight: var(--w-extrabold); line-height: var(--lh-snug);  letter-spacing: var(--tracking-snug); }
+.voya-h2         { font-size: var(--fs-h2);         font-weight: var(--w-bold);      line-height: var(--lh-snug); }
+.voya-h3         { font-size: var(--fs-h3);         font-weight: var(--w-bold);      line-height: var(--lh-snug); }
+.voya-h4         { font-size: var(--fs-h4);         font-weight: var(--w-bold);      line-height: var(--lh-normal); }
+
+.voya-body-lg,
+.voya-body,
+.voya-body-sm,
+.voya-caption {
+  font-family: var(--font-body);
+  color: var(--fg-1);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.voya-body-lg  { font-size: var(--fs-body-lg); line-height: var(--lh-relaxed); font-weight: var(--w-regular); }
+.voya-body     { font-size: var(--fs-body);    line-height: var(--lh-relaxed); font-weight: var(--w-regular); }
+.voya-body-sm  { font-size: var(--fs-body-sm); line-height: var(--lh-normal);  font-weight: var(--w-regular); }
+.voya-caption  { font-size: var(--fs-caption); line-height: var(--lh-normal);  color: var(--fg-2); }
+
+.voya-label {
+  font-family: var(--font-body);
+  font-size: var(--fs-body-sm);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg-1);
+}
+
+.voya-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-body-sm);
+  color: var(--fg-2);
+}
+
+.voya-accent,
+.voya-quote {
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--voya-navy);
+}
+
+.voya-accent { font-size: var(--fs-h2); line-height: 1.2; }
+.voya-quote  { font-size: var(--fs-h3); line-height: 1.35; }
+
+/* ============================================================
+   BASE
+   ============================================================ */
+html, body {
+  background: var(--bg-page);
+  color: var(--fg-1);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-relaxed);
+  -webkit-font-smoothing: antialiased;
+}

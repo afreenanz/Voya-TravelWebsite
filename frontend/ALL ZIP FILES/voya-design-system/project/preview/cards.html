@@ -1,0 +1,76 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 22px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .item {
+    background: #fff; border-radius: 20px; padding: 16px;
+    box-shadow: 0 2px 6px rgba(12,68,124,0.08);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .destination {
+    background: linear-gradient(180deg, #6FAAEA 0%, #2978C9 100%);
+    color: #fff; min-height: 160px; justify-content: space-between;
+    position: relative; overflow: hidden;
+  }
+  .destination::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(120% 80% at 100% 0%, rgba(239,159,39,0.35) 0%, transparent 50%);
+  }
+  .destination > * { position: relative; z-index: 1; }
+  .city { font-family: var(--font-display); font-weight: 900; font-size: 28px; letter-spacing: -0.02em; line-height: 1.05; }
+  .meta { font-family: var(--font-body); font-size: 13px; opacity: 0.92; }
+  .price-row { display: flex; align-items: baseline; gap: 4px; }
+  .price { font-family: var(--font-display); font-weight: 900; font-size: 22px; }
+  .per { font-family: var(--font-body); font-size: 12px; opacity: 0.85; }
+  .pill {
+    align-self: flex-start; padding: 4px 10px; border-radius: 999px;
+    background: rgba(255,255,255,0.20); font-family: var(--font-body); font-weight: 600;
+    font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  .flight { gap: 10px; }
+  .top { display: flex; justify-content: space-between; align-items: center; }
+  .airline { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 800; color: var(--voya-navy); }
+  .airline-dot { width: 28px; height: 28px; border-radius: 999px; background: var(--voya-ocean); color: #fff;
+                 display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; font-family: var(--font-display); }
+  .badge-amber { background: rgba(239,159,39,0.18); color: var(--voya-amber-700); padding: 4px 10px; border-radius: 999px;
+                 font-family: var(--font-body); font-weight: 600; font-size: 11px; }
+  .leg { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; }
+  .time { font-family: var(--font-display); font-weight: 900; font-size: 22px; color: var(--voya-navy); }
+  .iata { font-family: var(--font-mono); font-size: 11px; color: var(--fg-2); display: block; margin-top: 2px; }
+  .route-mini { height: 1px; background: repeating-linear-gradient(to right, var(--voya-ocean) 0 4px, transparent 4px 8px); position: relative; }
+  .route-mini::after { content: ''; position: absolute; left: 50%; top: -7px; transform: translateX(-50%);
+                       width: 14px; height: 14px; border-radius: 999px; background: #fff; border: 2px solid var(--voya-ocean); }
+  .duration { text-align: center; font-family: var(--font-mono); font-size: 10px; color: var(--fg-2); position: absolute; top: 10px; left: 50%; transform: translateX(-50%); }
+  .price2 { font-family: var(--font-display); font-weight: 900; font-size: 22px; color: var(--voya-navy); }
+  .leg-wrap { position: relative; }
+</style></head>
+<body><div class="card">
+  <div class="item destination">
+    <span class="pill">Trending</span>
+    <div>
+      <div class="city">Lisbon</div>
+      <div class="meta">Portugal · 6 days from May 14</div>
+      <div class="price-row" style="margin-top: 10px;">
+        <span class="price">€1,240</span><span class="per">/ person all-in</span>
+      </div>
+    </div>
+  </div>
+  <div class="item flight">
+    <div class="top">
+      <div class="airline"><span class="airline-dot">TP</span>TAP Air</div>
+      <span class="badge-amber">Best value</span>
+    </div>
+    <div class="leg-wrap">
+      <div class="leg">
+        <div><span class="time">09:14</span><span class="iata">SFO</span></div>
+        <div class="route-mini"><span class="duration">11h 32m · 1 stop</span></div>
+        <div style="text-align:right"><span class="time">07:46</span><span class="iata">+1 · LIS</span></div>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top: 4px;">
+      <span style="font-family: var(--font-body); font-size: 13px; color: var(--fg-2);">Economy · refundable</span>
+      <span class="price2">$612</span>
+    </div>
+  </div>
+</div></body></html>

@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 22px 28px; display: flex; flex-direction: column; gap: 14px; }
+  .line { display: grid; grid-template-columns: 1fr 200px; align-items: baseline; gap: 16px; }
+  .specimen { font-family: 'Plus Jakarta Sans', system-ui; color: var(--fg-1); margin: 0; }
+  .meta { font-family: var(--font-mono); font-size: 10px; color: var(--fg-2); text-align: right; }
+  .lg  { font-size: 18px; line-height: 1.55; font-weight: 400; }
+  .md  { font-size: 16px; line-height: 1.6;  font-weight: 400; }
+  .sm  { font-size: 14px; line-height: 1.5;  color: var(--fg-2); font-weight: 400; }
+  .cap { font-size: 13px; line-height: 1.45; color: var(--fg-3); font-weight: 400; }
+  .lbl { font-size: 13px; font-weight: 500; letter-spacing: -0.005em; color: var(--fg-1); }
+  .eyebrow {
+    font-family: 'Clash Grotesk', 'Plus Jakarta Sans', system-ui;
+    font-weight: 600; font-size: 11px;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--voya-ocean);
+  }
+  .accent {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-style: italic; font-size: 20px; line-height: 1.35;
+    color: var(--voya-navy);
+  }
+</style></head>
+<body><div class="card">
+  <div class="line"><span class="eyebrow">WHAT YOU GET</span><span class="meta">Eyebrow · Clash 600 · +0.18em</span></div>
+  <div class="line"><p class="specimen lg">Your cute smart travel friend who already planned everything.</p><span class="meta">Body LG · Jakarta 400</span></div>
+  <div class="line"><p class="specimen md">Voya monitors flight prices and rebooks when it finds you a better fare.</p><span class="meta">Body · Jakarta 400</span></div>
+  <div class="line"><p class="specimen sm">€42 (~$45) · cancellable until 18 May</p><span class="meta">Body SM · Jakarta 400</span></div>
+  <div class="line"><span class="specimen lbl">Departing city</span><span class="meta">Label · Jakarta 500</span></div>
+  <div class="line"><span class="specimen cap">Pro tip — book 6 weeks out for the best fare.</span><span class="meta">Caption · Jakarta 400</span></div>
+  <div class="line"><span class="accent">“Relax, we got this.”</span><span class="meta">Accent · Instrument Serif Italic</span></div>
+</div></body></html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voya — Travel more. Plan less.</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <div class="container">
+        <div class="hero">
+            <h1>Voya</h1>
+            <p class="tagline">Travel more. Plan less.</p>
+        </div>
+
+        <form class="trip-form" action="/plan" method="POST">
+
+            <div class="field">
+                <label for="destination">Where do you want to go?</label>
+                <input type="text" id="destination" name="destination" placeholder="e.g. Tokyo, Japan" required>
+            </div>
+
+            <div class="field">
+                <label for="days">How many days?</label>
+                <input type="number" id="days" name="days" placeholder="e.g. 7" min="1" max="30" required>
+            </div>
+
+            <div class="field">
+                <label for="interests">What are you into?</label>
+                <input type="text" id="interests" name="interests" placeholder="e.g. food, history, hiking, art">
+            </div>
+
+            <div class="field">
+                <label for="budget">Budget level</label>
+                <select id="budget" name="budget">
+                    <option value="budget">Budget (cheap eats, hostels)</option>
+                    <option value="mid" selected>Mid-range (mix of comfort & value)</option>
+                    <option value="luxury">Luxury (best hotels, fine dining)</option>
+                </select>
+            </div>
+
+            <button type="submit">Plan my trip ✈️</button>
+
+        </form>
+    </div>
+
+</body>
+</html>

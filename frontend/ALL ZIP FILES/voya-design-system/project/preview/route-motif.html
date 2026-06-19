@@ -1,0 +1,52 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  body { background: var(--voya-cream); }
+  .card { padding: 22px 28px; }
+  .stage { position: relative; height: 160px; }
+  svg { overflow: visible; }
+  .legend { display: flex; gap: 18px; margin-top: 10px;
+            font-family: var(--font-mono); font-size: 10px; color: var(--fg-2); }
+  .legend span b { color: var(--voya-navy); font-family: var(--font-display), system-ui; font-weight: 700; }
+</style></head>
+<body><div class="card">
+  <div class="stage">
+    <svg viewBox="0 0 700 160" width="100%" height="100%" preserveAspectRatio="none">
+      <!-- soft wavy route, dashed, ocean blue -->
+      <path id="route"
+            d="M 16 110 C 110 50, 220 150, 340 90 S 540 30, 660 60"
+            fill="none" stroke="#378ADD" stroke-width="3"
+            stroke-dasharray="3 8"
+            stroke-linecap="round"/>
+      <!-- Filled paper plane aligned to the route's right endpoint, rotated to match tangent -->
+      <!-- Endpoint is approx (660, 60). Tangent direction: route arrives going up+right; rotate ~-12deg -->
+      <g transform="translate(648,46) rotate(-12)">
+        <!-- airplane body, filled amber-on-navy style icon -->
+        <path d="M 38 12
+                 L 16 22
+                 L 4 18
+                 L 0 22
+                 L 10 30
+                 L 6 36
+                 L 12 38
+                 L 18 34
+                 L 24 38
+                 L 30 32
+                 L 38 28
+                 L 50 24
+                 L 56 18
+                 L 50 12
+                 L 38 12 Z"
+              fill="#0C447C"/>
+        <!-- amber accent on wing -->
+        <path d="M 14 22 L 24 18 L 22 24 L 14 22 Z" fill="#EF9F27"/>
+      </g>
+    </svg>
+  </div>
+  <div class="legend">
+    <span>stroke <b>dashed · 3px</b></span>
+    <span>dash <b>3 / 8</b></span>
+    <span>color <b>ocean</b></span>
+    <span>endpoint <b>filled plane</b></span>
+  </div>
+</div></body></html>

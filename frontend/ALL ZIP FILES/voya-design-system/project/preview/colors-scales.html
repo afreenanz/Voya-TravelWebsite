@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .row { display: grid; grid-template-columns: 110px repeat(9, 1fr); gap: 0; align-items: stretch; margin-bottom: 14px; }
+  .row:last-child { margin-bottom: 0; }
+  .label { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--voya-navy);
+           display: flex; align-items: center; padding-right: 10px; }
+  .chip { height: 64px; display: flex; align-items: flex-end; justify-content: flex-start;
+          padding: 6px 8px; font-family: var(--font-mono); font-size: 10px; }
+  .chip:first-of-type { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+  .chip:last-of-type  { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
+  .light { color: var(--voya-cream); }
+  .dark  { color: var(--voya-navy); }
+  .scale-label { font-size: 9px; opacity: 0.7; font-family: var(--font-mono); }
+</style></head>
+<body><div class="card">
+  <div class="row">
+    <div class="label">Ocean</div>
+    <div class="chip dark"  style="background:#EAF3FC">50</div>
+    <div class="chip dark"  style="background:#CFE3F8">100</div>
+    <div class="chip dark"  style="background:#9FC7F1">200</div>
+    <div class="chip dark"  style="background:#6FAAEA">300</div>
+    <div class="chip light" style="background:#378ADD">400</div>
+    <div class="chip light" style="background:#2978C9">500</div>
+    <div class="chip light" style="background:#1E62AC">600</div>
+    <div class="chip light" style="background:#144E8E">700</div>
+    <div class="chip light" style="background:#0C447C">800</div>
+  </div>
+  <div class="row">
+    <div class="label">Amber</div>
+    <div class="chip dark" style="background:#FDF3E1">50</div>
+    <div class="chip dark" style="background:#FBE5BD">100</div>
+    <div class="chip dark" style="background:#F6CD83">200</div>
+    <div class="chip dark" style="background:#F2B650">300</div>
+    <div class="chip dark" style="background:#EF9F27">400</div>
+    <div class="chip light" style="background:#D8881A">500</div>
+    <div class="chip light" style="background:#B26C10">600</div>
+    <div class="chip light" style="background:#87520A">700</div>
+    <div class="chip light" style="background:#5C3805">800</div>
+  </div>
+  <div class="row">
+    <div class="label">Cream</div>
+    <div class="chip dark" style="background:#FBFAF6;border:1px solid rgba(44,44,42,0.08)">50</div>
+    <div class="chip dark" style="background:#F6F4ED">100</div>
+    <div class="chip dark" style="background:#F1EFE8">200</div>
+    <div class="chip dark" style="background:#E5E2D7">300</div>
+    <div class="chip dark" style="background:#C9C5B6">400</div>
+    <div class="chip dark" style="background:#9C9889">500</div>
+    <div class="chip light" style="background:#6E6B60">600</div>
+    <div class="chip light" style="background:#4A4842">700</div>
+    <div class="chip light" style="background:#2C2C2A">800</div>
+  </div>
+</div></body></html>

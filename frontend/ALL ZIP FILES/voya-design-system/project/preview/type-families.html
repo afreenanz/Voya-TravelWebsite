@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .family { display: flex; flex-direction: column; gap: 10px;
+            padding: 18px 20px; background: #fff; border-radius: 18px;
+            box-shadow: 0 2px 6px rgba(12,68,124,0.08); }
+  .name {
+    font-size: 11px;
+    font-family: 'Clash Grotesk', system-ui;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--voya-ocean);
+  }
+  .sample { font-size: 56px; margin: 0; color: var(--voya-navy); line-height: 1.0; letter-spacing: -0.035em; }
+  .fre { font-family: 'Clash Grotesk'; font-weight: 700; }
+  .int { font-family: 'Plus Jakarta Sans'; font-weight: 600; }
+  .desc { font-size: 13px; color: var(--fg-2); font-family: 'Plus Jakarta Sans'; margin: 0; line-height: 1.45; }
+  .weights { display: flex; gap: 14px; font-family: var(--font-mono); font-size: 10px; color: var(--fg-3); }
+</style></head>
+<body><div class="card">
+  <div class="family">
+    <span class="name">Display · Clash Grotesk</span>
+    <h2 class="sample fre">voya</h2>
+    <p class="desc">Rounded grotesk — chunky and friendly. Headlines, hero text, titles, eyebrows. (Brand sheet calls for the "Rounded" cut; Clash Grotesk variable is the closest free match.)</p>
+    <div class="weights"><span>400</span><span>500</span><span>600</span><span>700</span></div>
+  </div>
+  <div class="family">
+    <span class="name">Body · Plus Jakarta Sans</span>
+    <h2 class="sample int">Ag 0123</h2>
+    <p class="desc">Clean, neutral, highly readable. Body copy, UI labels, descriptions, captions.</p>
+    <div class="weights"><span>400</span><span>500</span><span>600</span><span>700</span><span>800</span></div>
+  </div>
+</div></body></html>

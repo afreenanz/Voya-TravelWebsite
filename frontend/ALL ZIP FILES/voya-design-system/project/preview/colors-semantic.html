@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .item { background: #fff; border-radius: 16px; padding: 14px; box-shadow: 0 2px 6px rgba(12,68,124,0.08);
+          display: flex; gap: 12px; align-items: center; }
+  .dot { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+         box-shadow: inset 0 -2px 0 rgba(0,0,0,0.08); }
+  .meta { display: flex; flex-direction: column; }
+  .name { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--voya-navy); }
+  .hex  { font-family: var(--font-mono); font-size: 11px; color: var(--fg-2); margin-top: 2px; }
+</style></head>
+<body><div class="card">
+  <div class="grid">
+    <div class="item"><div class="dot" style="background:#2FA56A"></div><div class="meta"><span class="name">Success</span><span class="hex">#2FA56A</span></div></div>
+    <div class="item"><div class="dot" style="background:#EF9F27"></div><div class="meta"><span class="name">Warning</span><span class="hex">#EF9F27</span></div></div>
+    <div class="item"><div class="dot" style="background:#E2553D"></div><div class="meta"><span class="name">Danger</span><span class="hex">#E2553D</span></div></div>
+    <div class="item"><div class="dot" style="background:#378ADD"></div><div class="meta"><span class="name">Info</span><span class="hex">#378ADD</span></div></div>
+  </div>
+</div></body></html>
