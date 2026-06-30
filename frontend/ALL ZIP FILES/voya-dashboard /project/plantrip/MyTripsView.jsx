@@ -8,8 +8,9 @@ const TRIP_GRADIENTS = {
   japan:    'linear-gradient(160deg,#FFD0DA 0%,#E8859C 50%,#0C447C 100%)',
 };
 
-function TripCard({ trip, onClick }) {
-  const [hv, setHv] = useState(false);
+function TripCard({ trip, onClick, onDelete }) {
+  const [hv,        setHv]        = useState(false);
+  const [deleting,  setDeleting]  = useState(false);
   const st = STATUS_CONFIG[trip.status] || STATUS_CONFIG.planning;
 
   return (
@@ -112,9 +113,27 @@ function TripCard({ trip, onClick }) {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <span style={{ fontFamily: C.fb, fontSize: 12, color: C.fg3 }}>{trip.travelStyle}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: C.ocean }}>
-            <span style={{ fontFamily: C.fd, fontWeight: 600, fontSize: 13 }}>View itinerary</span>
-            <Icon name="arrow-right" size={13} color={C.ocean} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                if (!deleting && window.confirm(`Delete ${trip.destination} trip?`)) {
+                  setDeleting(true);
+                  onDelete(trip.id).finally(() => setDeleting(false));
+                }
+              }}
+              style={{
+                background: 'none', border: 0, padding: 4, cursor: deleting ? 'default' : 'pointer',
+                opacity: deleting ? 0.4 : 0.55, display: 'flex', alignItems: 'center',
+                transition: 'opacity 150ms',
+              }}
+            >
+              <Icon name="trash-2" size={14} color="#E2553D" />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: C.ocean }}>
+              <span style={{ fontFamily: C.fd, fontWeight: 600, fontSize: 13 }}>View itinerary</span>
+              <Icon name="arrow-right" size={13} color={C.ocean} />
+            </div>
           </div>
         </div>
       </div>
@@ -150,6 +169,20 @@ function MyTripsView({ onSelectTrip }) {
   };
 
   const visibleTrips = filter === 'all' ? trips : trips.filter(t => t.status === filter);
+
+  const handleDelete = async (id) => {
+    const email = localStorage.getItem('voya_user_email') || '';
+    try {
+      const res  = await fetch(`http://127.0.0.1:5000/delete-trip/${id}?user_email=${encodeURIComponent(email)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) setTrips(prev => prev.filter(t => t.id !== id));
+      else alert(data.error || 'Failed to delete trip.');
+    } catch {
+      alert('Could not reach the server.');
+    }
+  };
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '40px 52px 60px', background: C.cream }}>
@@ -226,7 +259,7 @@ function MyTripsView({ onSelectTrip }) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           {visibleTrips.map(trip => (
-            <TripCard key={trip.id} trip={trip} onClick={onSelectTrip} />
+            <TripCard key={trip.id} trip={trip} onClick={onSelectTrip} onDelete={handleDelete} />
           ))}
         </div>
       )}

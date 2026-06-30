@@ -495,6 +495,20 @@ def get_trips():
         print(f"Get trips error: {e}")
         return {"success": False, "error": str(e)}, 500
 
+
+@app.route("/delete-trip/<int:trip_id>", methods=["DELETE"])
+def delete_trip(trip_id):
+    try:
+        email = request.args.get("user_email", "").strip()
+        if not email:
+            return {"success": False, "error": "user_email is required."}, 400
+        supabase.table("trips").delete().eq("id", trip_id).eq("user_email", email).execute()
+        return {"success": True}
+    except Exception as e:
+        print(f"Delete trip error: {e}")
+        return {"success": False, "error": str(e)}, 500
+
+
 @app.route("/generate-trip", methods=["POST"])
 def generate_trip():
 
