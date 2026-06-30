@@ -496,6 +496,73 @@ def get_trips():
         return {"success": False, "error": str(e)}, 500
 
 
+@app.route("/bookmarks", methods=["GET"])
+def get_bookmarks():
+    try:
+        email = request.args.get("user_email", "").strip()
+        if not email:
+            return {"success": False, "error": "user_email is required."}, 400
+        result = supabase.table("bookmarks").select("*").eq("user_email", email).order("id", desc=True).execute()
+        return {"success": True, "bookmarks": result.data}
+    except Exception as e:
+        return {"success": False, "error": str(e)}, 500
+
+
+@app.route("/bookmark", methods=["POST"])
+def add_bookmark():
+    try:
+        data  = request.json
+        email = data.get("user_email", "").strip()
+        dest  = data.get("destination", "").strip()
+        if not email or not dest:
+            return {"success": False, "error": "user_email and destination are required."}, 400
+        result = supabase.table("bookmarks").insert({
+            "user_email":  email,
+            "destination": dest,
+            "flag":        data.get("flag", "✈️"),
+            "gradient":    data.get("gradient", ""),
+            "hint":        data.get("hint", ""),
+        }).execute()
+        return {"success": True, "bookmark": result.data[0] if result.data else None}
+    except Exception as e:
+        return {"success": False, "error": str(e)}, 500
+
+
+@app.route("/bookmark/<int:bookmark_id>", methods=["DELETE"])
+def remove_bookmark(bookmark_id):
+    try:
+        email = request.args.get("user_email", "").strip()
+        if not email:
+            return {"success": False, "error": "user_email is required."}, 400
+        supabase.table("bookmarks").delete().eq("id", bookmark_id).eq("user_email", email).execute()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}, 500
+
+
+@app.route("/upload-avatar", methods=["POST"])
+def upload_avatar():
+    try:
+        email = request.form.get("user_email", "").strip()
+        file  = request.files.get("avatar")
+        if not email or not file:
+            return {"success": False, "error": "user_email and avatar file are required."}, 400
+        file_bytes   = file.read()
+        ext          = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "jpg"
+        file_path    = f"{email}/avatar.{ext}"
+        content_type = file.content_type or f"image/{ext}"
+        supabase.storage.from_("avatars").upload(
+            file_path, file_bytes,
+            {"content-type": content_type, "upsert": "true"}
+        )
+        public_url = supabase.storage.from_("avatars").get_public_url(file_path)
+        supabase.table("users").update({"avatar_url": public_url}).eq("email", email).execute()
+        return {"success": True, "avatar_url": public_url}
+    except Exception as e:
+        print(f"Upload avatar error: {e}")
+        return {"success": False, "error": str(e)}, 500
+
+
 @app.route("/recent-searches", methods=["GET"])
 def get_recent_searches():
     try:

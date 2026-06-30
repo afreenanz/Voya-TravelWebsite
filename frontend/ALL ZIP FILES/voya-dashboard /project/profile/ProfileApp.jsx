@@ -1,5 +1,5 @@
 // profile/ProfileApp.jsx — Voya Profile Page
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
 
 // ─── Sidebar ──────────────────────────────────────────────────
 function ProfileSidebar({ name }) {
@@ -66,10 +66,34 @@ function ProfileSidebar({ name }) {
 }
 
 // ─── Hero Card ────────────────────────────────────────────────
-function ProfileHero({ profile, email }) {
-  const name     = profile?.full_name || localStorage.getItem('voya_user_name') || 'Traveler';
-  const initials = name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?';
-  const bio      = profile?.bio || '';
+function ProfileHero({ profile, email, onAvatarUpload }) {
+  const name       = profile?.full_name || localStorage.getItem('voya_user_name') || 'Traveler';
+  const initials   = name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+  const bio        = profile?.bio || '';
+  const avatarUrl  = profile?.avatar_url || '';
+  const fileRef    = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [hoverAvatar, setHoverAvatar] = useState(false);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !email) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('user_email', email);
+      formData.append('avatar', file);
+      const res  = await fetch('http://127.0.0.1:5000/upload-avatar', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.success && onAvatarUpload) onAvatarUpload(data.avatar_url);
+      else if (!data.success) alert(data.error || 'Upload failed.');
+    } catch {
+      alert('Could not connect to server.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
 
   return (
     <div style={{ background: '#fff', borderRadius: 24, overflow: 'hidden', marginBottom: 20, boxShadow: '0 2px 10px rgba(12,68,124,0.07)' }}>
@@ -92,14 +116,34 @@ function ProfileHero({ profile, email }) {
       {/* Avatar + Info */}
       <div style={{ padding: '0 28px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18, marginTop: -28, marginBottom: 16 }}>
-          <div style={{
-            width: 80, height: 80, borderRadius: '50%',
-            background: C.amber, border: '4px solid #fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(239,159,39,0.30)', flexShrink: 0
-          }}>
-            <span style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 28, color: '#fff' }}>{initials}</span>
+          {/* Clickable avatar */}
+          <div
+            onClick={() => !uploading && fileRef.current && fileRef.current.click()}
+            onMouseEnter={() => setHoverAvatar(true)}
+            onMouseLeave={() => setHoverAvatar(false)}
+            style={{
+              width: 80, height: 80, borderRadius: '50%',
+              background: avatarUrl ? 'transparent' : C.amber,
+              border: '4px solid #fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(239,159,39,0.30)', flexShrink: 0,
+              cursor: 'pointer', position: 'relative', overflow: 'hidden',
+            }}
+          >
+            {avatarUrl
+              ? <img src={avatarUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+              : <span style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 28, color: '#fff' }}>{initials}</span>
+            }
+            {(hoverAvatar || uploading) && (
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: '50%',
+                background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon name={uploading ? 'loader' : 'camera'} size={20} color="#fff" />
+              </div>
+            )}
           </div>
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
           <div style={{ paddingBottom: 4 }}>
             <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 24, color: C.navy, lineHeight: 1.1 }}>{name}</div>
             {email && <div style={{ fontFamily: C.fb, fontSize: 13, color: C.ocean, marginTop: 2 }}>{email}</div>}
@@ -460,6 +504,10 @@ function ProfileApp() {
     setProfile(prev => ({ ...prev, ...updated }));
   };
 
+  const handleAvatarUpload = (avatarUrl) => {
+    setProfile(prev => ({ ...prev, avatar_url: avatarUrl }));
+  };
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <ProfileSidebar name={displayName} />
@@ -470,7 +518,7 @@ function ProfileApp() {
           </div>
         ) : (
           <>
-            <ProfileHero profile={profile} email={email} />
+            <ProfileHero profile={profile} email={email} onAvatarUpload={handleAvatarUpload} />
             <StatsStrip />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
               <div>

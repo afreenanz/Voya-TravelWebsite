@@ -582,7 +582,7 @@ function RecentSearches() {
 }
 
 // ─── Popular Destinations ─────────────────────────────────────
-function PopularDestinations() {
+function PopularDestinations({ bookmarks, onToggle }) {
   const dests = [
     { name: 'Bali',        c: 'Indonesia',   flag: '🇮🇩', bud: '₹35,000', best: 'Apr–Oct',
       g: `linear-gradient(160deg,#F6CD83 0%,${C.amber} 45%,#87520A 100%)` },
@@ -678,15 +678,21 @@ function PopularDestinations() {
                 padding: '3px 9px', borderRadius: 99,
                 fontFamily: C.fb, fontWeight: 600, fontSize: 11, color: '#fff',
               }}>{d.flag} {d.c}</div>
-              <button onClick={e => e.stopPropagation()} style={{
-                position: 'absolute', top: 8, right: 8,
-                width: 28, height: 28, borderRadius: 8, border: 0,
-                background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(6px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer',
-              }}>
-                <Icon name="heart" size={14} color="#fff" />
-              </button>
+              {(() => {
+                const saved = bookmarks && bookmarks.find(b => b.destination === d.name);
+                return (
+                  <button onClick={e => { e.stopPropagation(); onToggle && onToggle(d, saved); }} style={{
+                    position: 'absolute', top: 8, right: 8,
+                    width: 28, height: 28, borderRadius: 8, border: 0,
+                    background: saved ? 'rgba(226,85,61,0.85)' : 'rgba(255,255,255,0.18)',
+                    backdropFilter: 'blur(6px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', transition: 'background 180ms',
+                  }}>
+                    <Icon name="heart" size={14} color="#fff" />
+                  </button>
+                );
+              })()}
             </div>
             <div style={{ padding: '12px 14px 14px' }}>
               <div style={{
@@ -772,13 +778,8 @@ function TravelInspiration() {
 }
 
 // ─── Saved Places ─────────────────────────────────────────────
-function SavedPlaces() {
-  const places = [
-    { n: 'Bali',      c: 'Indonesia',   g: `linear-gradient(135deg,${C.amber},#87520A)` },
-    { n: 'Kyoto',     c: 'Japan',       g: 'linear-gradient(135deg,#FFD0DA,#E8859C)' },
-    { n: 'Phuket',    c: 'Thailand',    g: `linear-gradient(135deg,${C.ocean},${C.navy})` },
-    { n: 'Santorini', c: 'Greece',      g: 'linear-gradient(135deg,#9FC7F1,#0C447C)' },
-  ];
+function SavedPlaces({ bookmarks, onRemove }) {
+  if (!bookmarks || bookmarks.length === 0) return null;
   return (
     <VCard padding={20} radius={20} style={{ marginBottom: 40 }}>
       <VSectionHead
@@ -788,17 +789,21 @@ function SavedPlaces() {
         style={{ marginBottom: 12 }}
       />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {places.map(p => (
-          <div key={p.n} style={{
+        {bookmarks.map(p => (
+          <div key={p.id} style={{
             display: 'flex', alignItems: 'center', gap: 12,
             padding: '10px 12px', borderRadius: 14, background: C.sky, cursor: 'pointer',
           }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: p.g, flexShrink: 0 }} />
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: p.gradient || `linear-gradient(135deg,${C.ocean},${C.navy})`, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 14, color: C.navy }}>{p.n}</div>
-              <div style={{ fontFamily: C.fb, fontSize: 11, color: C.fg3 }}>{p.c}</div>
+              <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 14, color: C.navy }}>{p.flag} {p.destination}</div>
+              <div style={{ fontFamily: C.fb, fontSize: 11, color: C.fg3 }}>{p.hint}</div>
             </div>
-            <Icon name="heart" size={16} color="#E2553D" />
+            <button onClick={() => onRemove && onRemove(p.id)} style={{
+              background: 'none', border: 0, cursor: 'pointer', padding: 4, display: 'flex',
+            }}>
+              <Icon name="heart" size={16} color="#E2553D" />
+            </button>
           </div>
         ))}
       </div>
@@ -808,7 +813,17 @@ function SavedPlaces() {
 
 // ─── Root Dashboard ───────────────────────────────────────────
 function Dashboard() {
-  const [nav, setNav] = useState('home');
+  const [nav,       setNav]       = useState('home');
+  const [bookmarks, setBookmarks] = useState([]);
+
+  useEffect(() => {
+    const email = localStorage.getItem('voya_user_email') || '';
+    if (!email) return;
+    fetch(`http://127.0.0.1:5000/bookmarks?user_email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(data => { if (data.success) setBookmarks(data.bookmarks); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -816,6 +831,30 @@ function Dashboard() {
     });
     return () => cancelAnimationFrame(id);
   });
+
+  const handleToggleBookmark = async (dest, existing) => {
+    const email = localStorage.getItem('voya_user_email') || '';
+    if (!email) return;
+    if (existing) {
+      await fetch(`http://127.0.0.1:5000/bookmark/${existing.id}?user_email=${encodeURIComponent(email)}`, { method: 'DELETE' }).catch(() => {});
+      setBookmarks(prev => prev.filter(b => b.id !== existing.id));
+    } else {
+      const res  = await fetch('http://127.0.0.1:5000/bookmark', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_email: email, destination: dest.name, flag: dest.flag, gradient: dest.g, hint: dest.c }),
+      }).catch(() => null);
+      if (res) {
+        const data = await res.json();
+        if (data.success && data.bookmark) setBookmarks(prev => [data.bookmark, ...prev]);
+      }
+    }
+  };
+
+  const handleRemoveBookmark = async (id) => {
+    const email = localStorage.getItem('voya_user_email') || '';
+    await fetch(`http://127.0.0.1:5000/bookmark/${id}?user_email=${encodeURIComponent(email)}`, { method: 'DELETE' }).catch(() => {});
+    setBookmarks(prev => prev.filter(b => b.id !== id));
+  };
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -837,9 +876,9 @@ function Dashboard() {
             <RecentSearches />
           </div>
         </div>
-        <PopularDestinations />
+        <PopularDestinations bookmarks={bookmarks} onToggle={handleToggleBookmark} />
         <TravelInspiration />
-        <SavedPlaces />
+        <SavedPlaces bookmarks={bookmarks} onRemove={handleRemoveBookmark} />
       </main>
     </div>
   );
