@@ -16,7 +16,7 @@ PROJECT_ROOT  = os.path.dirname(BACKEND_DIR)
 FRONTEND_BASE = os.path.join(PROJECT_ROOT, "frontend", "ALL ZIP FILES")
 DASHBOARD_DIR = os.path.join(FRONTEND_BASE, "voya-dashboard ", "project")
 
-load_dotenv()
+load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
 OPENROUTER_MODEL = "deepseek/deepseek-chat-v3-0324"
 
