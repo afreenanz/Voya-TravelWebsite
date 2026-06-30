@@ -8,9 +8,18 @@ const TRIP_GRADIENTS = {
   japan:    'linear-gradient(160deg,#FFD0DA 0%,#E8859C 50%,#0C447C 100%)',
 };
 
-function TripCard({ trip, onClick, onDelete }) {
-  const [hv,        setHv]        = useState(false);
-  const [deleting,  setDeleting]  = useState(false);
+const STATUS_OPTIONS = [
+  { key: 'planning',  label: 'Planning'  },
+  { key: 'upcoming',  label: 'Upcoming'  },
+  { key: 'completed', label: 'Completed' },
+  { key: 'wishlist',  label: 'Wishlist'  },
+];
+
+function TripCard({ trip, onClick, onDelete, onStatusChange }) {
+  const [hv,           setHv]           = useState(false);
+  const [deleting,     setDeleting]     = useState(false);
+  const [showStatuses, setShowStatuses] = useState(false);
+  const [updating,     setUpdating]     = useState(false);
   const st = STATUS_CONFIG[trip.status] || STATUS_CONFIG.planning;
 
   return (
@@ -69,15 +78,63 @@ function TripCard({ trip, onClick, onDelete }) {
           fontFamily: C.fb, fontWeight: 600, fontSize: 12, color: '#fff',
         }}>{trip.flag} {trip.destination}</div>
 
-        {/* Status badge */}
-        <div style={{
-          position: 'absolute', top: 12, right: 12,
-          background: st.bg, color: st.color,
-          fontFamily: C.fd, fontWeight: 700, fontSize: 10,
-          padding: '4px 10px', borderRadius: 99, backdropFilter: 'blur(8px)',
-          letterSpacing: '0.07em', textTransform: 'uppercase',
-          border: '1px solid rgba(255,255,255,0.25)',
-        }}>{st.label}</div>
+        {/* Status badge — click to change */}
+        <div style={{ position: 'absolute', top: 12, right: 12 }}>
+          <div
+            onClick={e => { e.stopPropagation(); if (!updating) setShowStatuses(s => !s); }}
+            style={{
+              background: st.bg, color: st.color,
+              fontFamily: C.fd, fontWeight: 700, fontSize: 10,
+              padding: '4px 10px', borderRadius: 99, backdropFilter: 'blur(8px)',
+              letterSpacing: '0.07em', textTransform: 'uppercase',
+              border: '1px solid rgba(255,255,255,0.25)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+              opacity: updating ? 0.6 : 1,
+            }}
+          >
+            {st.label}
+            <Icon name="chevron-down" size={10} color={st.color} />
+          </div>
+          {showStatuses && (
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'absolute', top: 30, right: 0, zIndex: 50,
+                background: '#fff', borderRadius: 12,
+                boxShadow: '0 8px 24px rgba(12,68,124,0.16)',
+                padding: '6px 0', minWidth: 130,
+                border: `1px solid ${C.borderSoft}`,
+              }}
+            >
+              {STATUS_OPTIONS.map(opt => {
+                const cfg = STATUS_CONFIG[opt.key];
+                const isActive = trip.status === opt.key;
+                return (
+                  <div
+                    key={opt.key}
+                    onClick={async () => {
+                      if (isActive) { setShowStatuses(false); return; }
+                      setShowStatuses(false);
+                      setUpdating(true);
+                      await onStatusChange(trip.id, opt.key);
+                      setUpdating(false);
+                    }}
+                    style={{
+                      padding: '8px 14px', cursor: 'pointer',
+                      fontFamily: C.fd, fontWeight: isActive ? 700 : 600,
+                      fontSize: 12, color: isActive ? cfg.color : C.fg2,
+                      background: isActive ? cfg.bg : 'transparent',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}
+                  >
+                    {isActive && <Icon name="check" size={11} color={cfg.color} />}
+                    {opt.label}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Info */}
@@ -170,6 +227,22 @@ function MyTripsView({ onSelectTrip }) {
 
   const visibleTrips = filter === 'all' ? trips : trips.filter(t => t.status === filter);
 
+  const handleStatusChange = async (id, newStatus) => {
+    const email = localStorage.getItem('voya_user_email') || '';
+    try {
+      const res  = await fetch(`http://127.0.0.1:5000/update-trip-status/${id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ user_email: email, status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) setTrips(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+      else alert(data.error || 'Failed to update status.');
+    } catch {
+      alert('Could not reach the server.');
+    }
+  };
+
   const handleDelete = async (id) => {
     const email = localStorage.getItem('voya_user_email') || '';
     try {
@@ -259,7 +332,7 @@ function MyTripsView({ onSelectTrip }) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           {visibleTrips.map(trip => (
-            <TripCard key={trip.id} trip={trip} onClick={onSelectTrip} onDelete={handleDelete} />
+            <TripCard key={trip.id} trip={trip} onClick={onSelectTrip} onDelete={handleDelete} onStatusChange={handleStatusChange} />
           ))}
         </div>
       )}

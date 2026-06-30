@@ -496,6 +496,24 @@ def get_trips():
         return {"success": False, "error": str(e)}, 500
 
 
+@app.route("/update-trip-status/<int:trip_id>", methods=["PATCH"])
+def update_trip_status(trip_id):
+    try:
+        data   = request.json
+        email  = data.get("user_email", "").strip()
+        status = data.get("status", "").strip()
+        valid  = {"planning", "upcoming", "completed", "wishlist"}
+        if not email:
+            return {"success": False, "error": "user_email is required."}, 400
+        if status not in valid:
+            return {"success": False, "error": f"status must be one of {sorted(valid)}."}, 400
+        supabase.table("trips").update({"status": status}).eq("id", trip_id).eq("user_email", email).execute()
+        return {"success": True}
+    except Exception as e:
+        print(f"Update trip status error: {e}")
+        return {"success": False, "error": str(e)}, 500
+
+
 @app.route("/delete-trip/<int:trip_id>", methods=["DELETE"])
 def delete_trip(trip_id):
     try:
