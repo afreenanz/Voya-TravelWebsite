@@ -199,6 +199,18 @@ function PlanTripApp() {
 
       setFormData(buildTripFromApiResponse(result.itinerary, data));
       setView('itinerary');
+
+      // Save to recent searches (fire and forget)
+      const email = localStorage.getItem('voya_user_email') || '';
+      if (email) {
+        const query = data.styles && data.styles.length
+          ? `${data.dest} · ${data.styles.join(', ')} · ${data.budget}`
+          : data.dest;
+        fetch('http://127.0.0.1:5000/save-search', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_email: email, query }),
+        }).catch(() => {});
+      }
     } catch (error) {
       console.error(error);
       alert('Failed to generate itinerary. Please try again.');

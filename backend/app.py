@@ -496,6 +496,44 @@ def get_trips():
         return {"success": False, "error": str(e)}, 500
 
 
+@app.route("/recent-searches", methods=["GET"])
+def get_recent_searches():
+    try:
+        email = request.args.get("user_email", "").strip()
+        if not email:
+            return {"success": False, "error": "user_email is required."}, 400
+        result = supabase.table("searches").select("id,query").eq("user_email", email).order("id", desc=True).limit(6).execute()
+        return {"success": True, "searches": result.data}
+    except Exception as e:
+        return {"success": False, "error": str(e)}, 500
+
+
+@app.route("/save-search", methods=["POST"])
+def save_search():
+    try:
+        data  = request.json
+        email = data.get("user_email", "").strip()
+        query = data.get("query", "").strip()
+        if not email or not query:
+            return {"success": False, "error": "user_email and query are required."}, 400
+        supabase.table("searches").insert({"user_email": email, "query": query}).execute()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}, 500
+
+
+@app.route("/clear-searches", methods=["DELETE"])
+def clear_searches():
+    try:
+        email = request.args.get("user_email", "").strip()
+        if not email:
+            return {"success": False, "error": "user_email is required."}, 400
+        supabase.table("searches").delete().eq("user_email", email).execute()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}, 500
+
+
 @app.route("/update-trip-status/<int:trip_id>", methods=["PATCH"])
 def update_trip_status(trip_id):
     try:

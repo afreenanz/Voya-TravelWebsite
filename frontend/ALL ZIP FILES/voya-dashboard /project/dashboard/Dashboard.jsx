@@ -273,14 +273,38 @@ function QuickActions({ onNav }) {
 
 // ─── Upcoming Trips ───────────────────────────────────────────
 function UpcomingTrips() {
-  const trip = {
-    dest: 'Thailand',
-    city: 'Bangkok · Phuket · Koh Samui',
-    dates: '12 Jun – 18 Jun',
-    daysLeft: 8, nights: 6,
-    budget: '₹45,000',
-    g: `linear-gradient(160deg,#6FAAEA 0%,${C.ocean} 50%,#07304F 100%)`,
+  const [trip,    setTrip]    = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const email = localStorage.getItem('voya_user_email') || '';
+    if (!email) { setLoading(false); return; }
+    fetch(`http://127.0.0.1:5000/get-trips?user_email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.trips.length > 0) {
+          const upcoming = data.trips.find(t => t.status === 'upcoming')
+                        || data.trips.find(t => t.status === 'planning')
+                        || null;
+          setTrip(upcoming);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const daysLeft = (dateStr) => {
+    if (!dateStr) return null;
+    const diff = Math.ceil((new Date(dateStr) - new Date()) / 86400000);
+    return diff > 0 ? diff : 0;
   };
+
+  const fmtDate = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  };
+
   return (
     <div>
       <VSectionHead
@@ -288,90 +312,95 @@ function UpcomingTrips() {
         title="Upcoming trips"
         action={{ label: 'View all', fn: () => {} }}
       />
-      <VCard padding={0} radius={20} style={{ overflow: 'hidden' }} onClick={() => {}}>
-        <div style={{ display: 'flex' }}>
-          {/* Thumbnail */}
-          <div style={{
-            width: 160, flexShrink: 0, background: trip.g,
-            borderRadius: '20px 0 0 20px', position: 'relative',
-            minHeight: 148, overflow: 'hidden',
-          }}>
-            <svg viewBox="0 0 160 148" width="160" height="148"
-              style={{ position: 'absolute', inset: 0 }}>
-              <ellipse cx="80" cy="132" rx="100" ry="24" fill="rgba(0,0,0,0.18)" />
-              <rect x="45" y="82" width="70" height="60" fill="rgba(12,68,124,0.52)" />
-              <polygon points="40,82 80,54 120,82" fill="rgba(12,68,124,0.60)" />
-              <polygon points="50,70 80,46 110,70" fill="rgba(7,48,79,0.55)" />
-              <polygon points="60,58 80,40 100,58" fill="rgba(7,48,79,0.60)" />
-              <rect x="68" y="107" width="24" height="35" rx="3" fill="rgba(4,24,50,0.55)" />
-              <circle cx="24" cy="22" r="2" fill="rgba(241,239,232,0.45)" />
-              <circle cx="138" cy="14" r="2.5" fill="rgba(241,239,232,0.55)" />
-              <circle cx="115" cy="30" r="1.5" fill="rgba(241,239,232,0.40)" />
-            </svg>
+      {loading ? (
+        <VCard padding={24} radius={20}>
+          <div style={{ fontFamily: C.fb, fontSize: 13, color: C.fg3 }}>Loading…</div>
+        </VCard>
+      ) : !trip ? (
+        <VCard padding={28} radius={20} style={{ textAlign: 'center' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(55,138,221,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <Icon name="plane" size={22} color={C.ocean} />
+          </div>
+          <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 17, color: C.navy, marginBottom: 6 }}>No upcoming trips</div>
+          <div style={{ fontFamily: C.fb, fontSize: 13, color: C.fg3 }}>Plan your next adventure and save it to see it here.</div>
+        </VCard>
+      ) : (
+        <VCard padding={0} radius={20} style={{ overflow: 'hidden' }}>
+          <div style={{ display: 'flex' }}>
+            {/* Thumbnail */}
             <div style={{
-              position: 'absolute', top: 12, left: 12,
-              background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(8px)',
-              padding: '3px 9px', borderRadius: 99,
-              fontFamily: C.fb, fontWeight: 600, fontSize: 11, color: '#fff',
-            }}>🇹🇭 Thailand</div>
-          </div>
+              width: 160, flexShrink: 0,
+              background: trip.gradient || `linear-gradient(160deg,#6FAAEA 0%,${C.ocean} 50%,#07304F 100%)`,
+              borderRadius: '20px 0 0 20px', position: 'relative', minHeight: 148, overflow: 'hidden',
+            }}>
+              <svg viewBox="0 0 160 148" width="160" height="148" style={{ position: 'absolute', inset: 0, opacity: 0.55 }}>
+                <ellipse cx="80" cy="132" rx="100" ry="24" fill="rgba(0,0,0,0.18)" />
+                <rect x="45" y="82" width="70" height="60" fill="rgba(12,68,124,0.52)" />
+                <polygon points="40,82 80,54 120,82" fill="rgba(12,68,124,0.60)" />
+                <polygon points="50,70 80,46 110,70" fill="rgba(7,48,79,0.55)" />
+                <rect x="68" y="107" width="24" height="35" rx="3" fill="rgba(4,24,50,0.55)" />
+              </svg>
+              <div style={{
+                position: 'absolute', top: 12, left: 12,
+                background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(8px)',
+                padding: '3px 9px', borderRadius: 99,
+                fontFamily: C.fb, fontWeight: 600, fontSize: 11, color: '#fff',
+              }}>{trip.flag} {trip.destination}</div>
+            </div>
 
-          {/* Info */}
-          <div style={{
-            flex: 1, padding: '20px 22px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h3 style={{
-                  fontFamily: C.fd, fontWeight: 700, fontSize: 22,
-                  color: C.navy, margin: '0 0 3px',
-                }}>{trip.dest}</h3>
-                <div style={{ fontFamily: C.fb, fontSize: 13, color: C.fg3 }}>{trip.city}</div>
+            {/* Info */}
+            <div style={{ flex: 1, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h3 style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 22, color: C.navy, margin: '0 0 3px' }}>{trip.destination}</h3>
+                  <div style={{ fontFamily: C.fb, fontSize: 13, color: C.fg3 }}>{trip.cities}</div>
+                </div>
+                <span style={{
+                  background: trip.status === 'upcoming' ? 'rgba(47,165,106,0.12)' : 'rgba(55,138,221,0.12)',
+                  color: trip.status === 'upcoming' ? '#1e7a4d' : '#144E8E',
+                  fontFamily: C.fd, fontWeight: 700, fontSize: 11,
+                  padding: '5px 11px', borderRadius: 99,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                }}>{trip.status === 'upcoming' ? 'Confirmed' : 'Planning'}</span>
               </div>
-              <span style={{
-                background: 'rgba(47,165,106,0.12)', color: '#1e7a4d',
-                fontFamily: C.fd, fontWeight: 700, fontSize: 11,
-                padding: '5px 11px', borderRadius: 99,
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-              }}>Confirmed</span>
-            </div>
 
-            <div style={{ display: 'flex', gap: 20, margin: '14px 0' }}>
-              {[
-                { i: 'calendar', t: trip.dates },
-                { i: 'moon', t: `${trip.nights} nights` },
-                { i: 'banknote', t: trip.budget },
-              ].map(m => (
-                <div key={m.i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icon name={m.i} size={14} color={C.fg3} />
-                  <span style={{ fontFamily: C.fb, fontSize: 13, color: C.fg2 }}>{m.t}</span>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ flex: 1, maxWidth: 210 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <span style={{ fontFamily: C.fb, fontSize: 12, color: C.fg3 }}>Countdown</span>
-                  <span style={{ fontFamily: C.fb, fontSize: 12, fontWeight: 600, color: C.ocean }}>
-                    {trip.daysLeft} days away
-                  </span>
-                </div>
-                <div style={{ height: 6, background: C.sky, borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', width: '38%',
-                    background: `linear-gradient(90deg,${C.ocean},${C.amber})`,
-                    borderRadius: 99,
-                  }} />
-                </div>
+              <div style={{ display: 'flex', gap: 20, margin: '14px 0' }}>
+                {[
+                  { i: 'calendar', t: `${fmtDate(trip.startDate)} – ${fmtDate(trip.endDate)}` },
+                  { i: 'moon',     t: `${trip.days} days` },
+                  { i: 'banknote', t: trip.budget },
+                ].map(m => (
+                  <div key={m.i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Icon name={m.i} size={14} color={C.fg3} />
+                    <span style={{ fontFamily: C.fb, fontSize: 13, color: C.fg2 }}>{m.t}</span>
+                  </div>
+                ))}
               </div>
-              <VBtn variant="outline" size="sm" trailing="arrow-right"
-                style={{ marginLeft: 20 }}>Open</VBtn>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                {trip.startDate ? (() => {
+                  const dl = daysLeft(trip.startDate);
+                  const pct = dl !== null ? Math.max(4, Math.min(96, 100 - (dl / 90) * 100)) : 50;
+                  return (
+                    <div style={{ flex: 1, maxWidth: 210 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                        <span style={{ fontFamily: C.fb, fontSize: 12, color: C.fg3 }}>Countdown</span>
+                        <span style={{ fontFamily: C.fb, fontSize: 12, fontWeight: 600, color: C.ocean }}>
+                          {dl === 0 ? 'Today!' : `${dl} days away`}
+                        </span>
+                      </div>
+                      <div style={{ height: 6, background: C.sky, borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg,${C.ocean},${C.amber})`, borderRadius: 99 }} />
+                      </div>
+                    </div>
+                  );
+                })() : <div />}
+                <VBtn variant="outline" size="sm" trailing="arrow-right" style={{ marginLeft: 20 }}>Open</VBtn>
+              </div>
             </div>
           </div>
-        </div>
-      </VCard>
+        </VCard>
+      )}
     </div>
   );
 }
@@ -499,7 +528,28 @@ function AIAssistant() {
 
 // ─── Recent Searches ──────────────────────────────────────────
 function RecentSearches() {
-  const srch = ['Thailand under ₹50k', 'Weekend trip to Goa', 'Japan itinerary', 'Maldives honeymoon'];
+  const [searches, setSearches] = useState([]);
+
+  useEffect(() => {
+    const email = localStorage.getItem('voya_user_email') || '';
+    if (!email) return;
+    fetch(`http://127.0.0.1:5000/recent-searches?user_email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(data => { if (data.success) setSearches(data.searches); })
+      .catch(() => {});
+  }, []);
+
+  const handleClear = async () => {
+    const email = localStorage.getItem('voya_user_email') || '';
+    if (!email) return;
+    try {
+      await fetch(`http://127.0.0.1:5000/clear-searches?user_email=${encodeURIComponent(email)}`, { method: 'DELETE' });
+      setSearches([]);
+    } catch {}
+  };
+
+  if (searches.length === 0) return null;
+
   return (
     <VCard padding={18} radius={18}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -509,20 +559,20 @@ function RecentSearches() {
             Recent searches
           </span>
         </div>
-        <button style={{
+        <button onClick={handleClear} style={{
           border: 0, background: 'none', cursor: 'pointer',
           fontFamily: C.fb, fontSize: 12, color: C.fg3,
         }}>Clear</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {srch.map(s => (
-          <div key={s} style={{
+        {searches.map(s => (
+          <div key={s.id} style={{
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '7px 10px', borderRadius: 10,
             background: C.sky, cursor: 'pointer',
           }}>
             <Icon name="search" size={13} color={C.fg3} />
-            <span style={{ fontFamily: C.fb, fontSize: 13, color: C.ink, flex: 1 }}>{s}</span>
+            <span style={{ fontFamily: C.fb, fontSize: 13, color: C.ink, flex: 1 }}>{s.query}</span>
             <Icon name="arrow-right" size={13} color={C.ocean} />
           </div>
         ))}
