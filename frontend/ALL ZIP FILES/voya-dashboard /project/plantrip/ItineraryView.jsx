@@ -210,7 +210,10 @@ function BookingPage({ trip, onClose }) {
     try {
       await fetch('http://127.0.0.1:5000/save-trip', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trip: { ...trip, status: 'upcoming' } }),
+        body: JSON.stringify({
+          user_email: localStorage.getItem('voya_user_email') || '',
+          trip: { ...trip, status: 'upcoming' },
+        }),
       });
     } catch {}
     setBooked({ flights: true, hotel: true, activities: true });
@@ -416,7 +419,10 @@ function ItineraryView({ trip, formData, onSave, onBack, isSaved }) {
       const res  = await fetch('http://127.0.0.1:5000/save-trip', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ trip: { ...displayTrip, status: 'wishlist' } }),
+        body:    JSON.stringify({
+          user_email: localStorage.getItem('voya_user_email') || '',
+          trip: { ...displayTrip, status: 'wishlist' },
+        }),
       });
       const data = await res.json();
       if (data.success) {

@@ -432,9 +432,15 @@ def login_password():
 @app.route("/save-trip", methods=["POST"])
 def save_trip():
     try:
-        trip = request.json.get("trip", {})
+        data  = request.json
+        trip  = data.get("trip", {})
+        email = data.get("user_email", "").strip()
+
+        if not email:
+            return {"success": False, "error": "user_email is required."}, 400
 
         supabase.table("trips").insert({
+            "user_email":     email,
             "destination":    trip.get("destination", ""),
             "cities":         trip.get("cities", ""),
             "flag":           trip.get("flag", "✈️"),
@@ -459,7 +465,11 @@ def save_trip():
 @app.route("/get-trips", methods=["GET"])
 def get_trips():
     try:
-        result = supabase.table("trips").select("*").order("id", desc=True).execute()
+        email = request.args.get("user_email", "").strip()
+        if not email:
+            return {"success": False, "error": "user_email is required."}, 400
+
+        result = supabase.table("trips").select("*").eq("user_email", email).order("id", desc=True).execute()
 
         trips = []
         for row in result.data:

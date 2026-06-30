@@ -129,7 +129,8 @@ function MyTripsView({ onSelectTrip }) {
   const [filter,  setFilter]  = useState('all');
 
   useEffect(() => {
-    fetch('http://127.0.0.1:5000/get-trips')
+    const email = localStorage.getItem('voya_user_email') || '';
+    fetch(`http://127.0.0.1:5000/get-trips?user_email=${encodeURIComponent(email)}`)
       .then(r => r.json())
       .then(data => {
         if (data.success) setTrips(data.trips);
