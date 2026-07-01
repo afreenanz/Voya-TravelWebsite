@@ -11,11 +11,5 @@
       "src": "/(.*)",
       "dest": "backend/app.py"
     }
-  ],
-  "functions": {
-    "backend/app.py": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
-  }
+  ]
 }
