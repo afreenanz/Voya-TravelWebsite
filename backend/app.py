@@ -15,6 +15,8 @@ BACKEND_DIR   = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT  = os.path.dirname(BACKEND_DIR)
 FRONTEND_BASE = os.path.join(PROJECT_ROOT, "frontend", "ALL ZIP FILES")
 DASHBOARD_DIR = os.path.join(FRONTEND_BASE, "voya-dashboard ", "project")
+LANDING_DIR   = os.path.join(FRONTEND_BASE, "voya-landing-page", "project")
+LOGIN_DIR     = os.path.join(FRONTEND_BASE, "voya-login-signup", "project")
 
 load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
@@ -131,7 +133,23 @@ supabase = create_client(
 
 @app.route("/")
 def home():
-    return {"message": "Voya Backend Running"}
+    return send_from_directory(LANDING_DIR, "Landing Page.html")
+
+
+@app.route("/login")
+@app.route("/login/")
+def serve_login():
+    return send_from_directory(LOGIN_DIR, "Login.html")
+
+
+@app.route("/login/<path:filename>")
+def serve_login_static(filename):
+    return send_from_directory(LOGIN_DIR, filename)
+
+
+@app.route("/<path:filename>")
+def serve_landing_static(filename):
+    return send_from_directory(LANDING_DIR, filename)
 
 
 # ── AI Chat ────────────────────────────────────────────────────
@@ -195,7 +213,7 @@ def auth_google():
         response = supabase.auth.sign_in_with_oauth({
             "provider": "google",
             "options": {
-                "redirect_to": "http://127.0.0.1:5000/auth/callback"
+                "redirect_to": request.host_url.rstrip("/") + "/auth/callback"
             }
         })
         return redirect(response.url)
@@ -684,7 +702,7 @@ def generate_trip():
                 "temperature":     0.8,
                 "max_tokens":      8192,
             },
-            timeout=60,
+            timeout=55,
         )
 
         res.raise_for_status()

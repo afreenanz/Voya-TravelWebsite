@@ -1,0 +1,13 @@
+.env
+.env.*
+node_modules/
+__pycache__/
+*.pyc
+VOYA_STUDY_GUIDE.md
+backend/app_old.py
+backend/test.py
+static/
+templates/
+frontend/ALL ZIP FILES/*.zip
+frontend/ALL ZIP FILES/voya-design-system/
+frontend/ALL ZIP FILES/Afreen-Resume-Updated.pdf
