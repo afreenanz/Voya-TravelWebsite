@@ -1,13 +1,17 @@
+# Never upload secrets or local tooling
 .env
 .env.*
-node_modules/
+!.env.example
+.venv/
+venv/
 __pycache__/
 *.pyc
+.DS_Store
+.git/
+.vercel/
+node_modules/
+
+# Docs and DB scripts are not needed at runtime
+README.md
 VOYA_STUDY_GUIDE.md
-backend/app_old.py
-backend/test.py
-static/
-templates/
-frontend/ALL ZIP FILES/*.zip
-frontend/ALL ZIP FILES/voya-design-system/
-frontend/ALL ZIP FILES/Afreen-Resume-Updated.pdf
+supabase/
