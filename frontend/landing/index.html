@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>voya. — Travel more. Plan less.</title>
+  <link rel="stylesheet" href="/shared/colors_and_type.css" />
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg-page); color: var(--fg-1); font-family: var(--font-body); overflow-x: hidden; }
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+
+    /* ─── NAV ─────────────────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(241,239,232,0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(44,44,42,0.06);
+      padding: 0 40px;
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 66px; gap: 32px;
+    }
+    .nav-links {
+      display: flex; gap: 32px; list-style: none;
+    }
+    .nav-links a {
+      font-family: var(--font-body); font-weight: 500; font-size: 14px;
+      color: var(--voya-navy); transition: opacity 140ms;
+    }
+    .nav-links a:hover { opacity: 0.65; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .nav-login {
+      font-family: var(--font-body); font-weight: 500; font-size: 14px;
+      color: var(--voya-navy); opacity: 0.75;
+      transition: opacity 140ms;
+    }
+    .nav-login:hover { opacity: 1; }
+
+    /* ─── BUTTONS ─────────────────────────────────────────────────── */
+    .btn {
+      font-family: var(--font-display); font-weight: 700;
+      border-radius: var(--radius-pill); display: inline-flex;
+      align-items: center; gap: 8px; white-space: nowrap;
+      cursor: pointer; border: none; text-decoration: none;
+      transition: transform 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: scale(0.97); }
+    .btn-sm  { padding: 10px 18px; font-size: 13.5px; }
+    .btn-md  { padding: 14px 24px; font-size: 15px; }
+    .btn-lg  { padding: 18px 32px; font-size: 17px; }
+    .btn-primary { background: var(--voya-ocean); color: #fff;
+                   box-shadow: 0 8px 24px rgba(55,138,221,0.32); }
+    .btn-primary:hover { box-shadow: 0 12px 32px rgba(55,138,221,0.42); }
+    .btn-amber { background: var(--voya-amber); color: #fff;
+                 box-shadow: var(--shadow-amber); }
+    .btn-amber:hover { box-shadow: 0 12px 36px rgba(239,159,39,0.48); }
+    .btn-navy { background: var(--voya-navy); color: var(--voya-cream);
+                box-shadow: 0 6px 18px rgba(12,68,124,0.24); }
+    .btn-outline { background: transparent; color: var(--voya-navy);
+                   box-shadow: inset 0 0 0 1.5px var(--voya-navy); }
+    .btn-ghost { background: transparent; color: var(--voya-cream); }
+    .btn-ghost:hover { background: rgba(241,239,232,0.12); }
+
+    /* ─── EYEBROW ─────────────────────────────────────────────────── */
+    .eyebrow {
+      font-family: var(--font-display); font-weight: 700;
+      font-size: 11px; letter-spacing: 0.20em;
+      text-transform: uppercase; color: var(--voya-ocean);
+    }
+
+    /* ─── SECTION WRAPPER ─────────────────────────────────────────── */
+    .section { padding: 96px 40px; }
+    .section-inner { max-width: 1200px; margin: 0 auto; }
+    .bg-cream  { background: var(--voya-cream); }
+    .bg-white  { background: #fff; }
+    .bg-navy   { background: var(--voya-navy); }
+    .bg-sky    { background: var(--voya-sky); }
+
+    /* ─── ENTRANCE ANIMATIONS ─────────────────────────────────────── */
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 600ms var(--ease-out), transform 600ms var(--ease-out);
+    }
+    .reveal.in { opacity: 1; transform: none; }
+    .reveal-delay-1 { transition-delay: 100ms; }
+    .reveal-delay-2 { transition-delay: 200ms; }
+    .reveal-delay-3 { transition-delay: 320ms; }
+    .reveal-delay-4 { transition-delay: 440ms; }
+
+    @keyframes fadeIn { to { opacity: 1; } }
+    @keyframes floatPinA {
+      0%, 100% { transform: rotate(6deg) translateY(0); }
+      50%       { transform: rotate(6deg) translateY(-5px); }
+    }
+    @keyframes floatPinB {
+      0%, 100% { transform: rotate(-4deg) translateY(0); }
+      50%       { transform: rotate(-4deg) translateY(-6px); }
+    }
+    @keyframes routeDraw {
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* ─── HERO ────────────────────────────────────────────────────── */
+    .hero-grid {
+      display: grid; grid-template-columns: 1.05fr 0.95fr;
+      gap: 64px; align-items: center;
+    }
+    .hero-headline {
+      font-family: var(--font-display); font-weight: 700;
+      font-size: clamp(52px, 6vw, 84px);
+      line-height: 0.96; letter-spacing: -0.03em;
+      color: var(--voya-navy); margin: 16px 0 22px;
+    }
+    .hero-headline .accent { color: var(--voya-amber); }
+    .hero-body {
+      font-family: var(--font-body); font-size: 18px; line-height: 1.55;
+      color: var(--fg-2); max-width: 520px;
+    }
+    .hero-trust {
+      display: flex; gap: 20px; margin-top: 24px;
+      font-family: var(--font-body); font-size: 12.5px; color: var(--fg-3);
+    }
+    .hero-trust-sep { color: rgba(44,44,42,0.25); }
+
+    /* AI Plan card */
+    .plan-card {
+      background: #fff; border-radius: 28px;
+      padding: 22px; box-shadow: var(--shadow-xl);
+      transform: rotate(-1.5deg);
+      position: relative;
+    }
+    .plan-card-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+    }
+    .plan-card-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--voya-amber); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .plan-card-body {
+      background: var(--voya-cream); border-radius: 18px; padding: 16px;
+      margin-bottom: 14px;
+    }
+    .plan-card-title {
+      font-family: var(--font-display); font-weight: 700; font-size: 18px;
+      color: var(--voya-navy); margin-bottom: 2px;
+    }
+    .plan-card-sub {
+      font-family: var(--font-body); font-size: 12.5px; color: var(--fg-3);
+    }
+    .plan-itinerary { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+    .plan-row { display: flex; align-items: center; gap: 10px; }
+    .plan-row-icon {
+      width: 28px; height: 28px; border-radius: 50%; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--voya-ocean); box-shadow: var(--shadow-sm); flex-shrink: 0;
+    }
+    .plan-day {
+      font-family: var(--font-display); font-weight: 700; font-size: 11px;
+      color: var(--fg-3); width: 36px; flex-shrink: 0;
+    }
+    .plan-activity {
+      font-family: var(--font-body); font-size: 13px;
+      font-weight: 500; color: var(--voya-navy);
+    }
+    .plan-card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .plan-card-meta {
+      font-family: var(--font-body); font-size: 11px; color: var(--fg-3);
+    }
+    .pin-sticker {
+      position: absolute; top: -16px; right: -14px;
+      background: #fff; padding: 6px 12px 6px 8px;
+      border-radius: 999px;
+      box-shadow: 0 10px 24px rgba(239,159,39,0.32);
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--font-display); font-weight: 700;
+      font-size: 12px; color: var(--voya-amber);
+      animation: floatPinA 3.4s ease-in-out infinite;
+    }
+    .pin-sticker-b {
+      position: absolute; bottom: -14px; left: -12px;
+      background: var(--voya-navy); padding: 6px 12px 6px 8px;
+      border-radius: 999px;
+      box-shadow: var(--shadow-md);
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--font-display); font-weight: 700;
+      font-size: 12px; color: var(--voya-cream);
+      animation: floatPinB 4s ease-in-out infinite;
+    }
+
+    /* ─── FEATURES GRID ───────────────────────────────────────────── */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+      margin-top: 52px;
+    }
+    .feature-card {
+      background: var(--voya-cream); border-radius: 24px; padding: 26px;
+      transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out);
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+    }
+    .feature-icon {
+      width: 48px; height: 48px; border-radius: 14px; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--voya-ocean); margin-bottom: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+    .feature-title {
+      font-family: var(--font-display); font-weight: 700; font-size: 19px;
+      color: var(--voya-navy); letter-spacing: -0.01em; margin-bottom: 8px;
+    }
+    .feature-body {
+      font-family: var(--font-body); font-size: 14.5px; line-height: 1.6;
+      color: var(--fg-2);
+    }
+
+    /* ─── HOW IT WORKS ────────────────────────────────────────────── */
+    .hiw-grid {
+      display: grid; grid-template-columns: 0.9fr 1.1fr;
+      gap: 72px; align-items: flex-start;
+    }
+    .hiw-sticky { position: sticky; top: 88px; }
+    .hiw-headline {
+      font-family: var(--font-display); font-weight: 700; font-size: 46px;
+      line-height: 1.05; letter-spacing: -0.025em; color: var(--voya-navy);
+      margin: 14px 0 18px;
+    }
+    .hiw-body {
+      font-family: var(--font-body); font-size: 17px;
+      color: var(--fg-2); line-height: 1.55; margin-bottom: 28px;
+    }
+    .steps { display: flex; flex-direction: column; gap: 16px; }
+    .step-card {
+      background: #fff; border-radius: 24px; padding: 26px;
+      box-shadow: var(--shadow-md);
+      display: grid; grid-template-columns: 58px 1fr; gap: 20px;
+    }
+    .step-num {
+      font-family: var(--font-display); font-weight: 700; font-size: 38px;
+      letter-spacing: -0.04em; line-height: 1;
+    }
+    .step-num.amber { color: var(--voya-amber); }
+    .step-num.ocean { color: var(--voya-ocean); }
+    .step-title {
+      font-family: var(--font-display); font-weight: 700; font-size: 20px;
+      color: var(--voya-navy); letter-spacing: -0.01em; margin-bottom: 6px;
+    }
+    .step-body {
+      font-family: var(--font-body); font-size: 15px;
+      color: var(--fg-2); line-height: 1.55;
+    }
+
+    /* ─── DESTINATIONS ────────────────────────────────────────────── */
+    .dest-header {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      margin-bottom: 36px; flex-wrap: wrap; gap: 20px;
+    }
+    .dest-headline {
+      font-family: var(--font-display); font-weight: 700; font-size: 44px;
+      line-height: 1.05; letter-spacing: -0.025em; color: var(--voya-navy);
+      margin-top: 12px;
+    }
+    .dest-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    }
+    .dest-card {
+      border-radius: 24px; overflow: hidden; background: #fff;
+      box-shadow: var(--shadow-md);
+      transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out);
+      cursor: pointer;
+    }
+    .dest-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
+    a.dest-card { display: block; }
+    .dest-img {
+      height: 210px; padding: 16px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      color: #fff; position: relative; overflow: hidden;
+    }
+    .dest-city {
+      font-family: var(--font-display); font-weight: 700; font-size: 26px;
+      letter-spacing: -0.02em; line-height: 1.05; position: relative; z-index: 1;
+    }
+    .dest-country {
+      font-family: var(--font-body); font-size: 13px; opacity: 0.88;
+      position: relative; z-index: 1;
+    }
+    .dest-card-foot {
+      padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .dest-price {
+      font-family: var(--font-display); font-weight: 700; font-size: 15px;
+      color: var(--voya-navy);
+    }
+    .dest-price-sub {
+      font-family: var(--font-body); font-size: 11px; color: var(--fg-3);
+      margin-top: 1px;
+    }
+
+    /* ─── SOCIAL PROOF STRIP ──────────────────────────────────────── */
+    .proof-strip {
+      display: flex; align-items: center; justify-content: center;
+      gap: 48px; padding: 48px 40px; flex-wrap: wrap;
+    }
+    .proof-stat {
+      text-align: center;
+    }
+    .proof-num {
+      font-family: var(--font-display); font-weight: 700; font-size: 40px;
+      color: var(--voya-navy); letter-spacing: -0.03em; line-height: 1;
+    }
+    .proof-label {
+      font-family: var(--font-body); font-size: 13px; color: var(--fg-3);
+      margin-top: 4px;
+    }
+    .proof-sep {
+      width: 1px; height: 48px; background: var(--border-soft);
+    }
+    .proof-quote {
+      max-width: 340px; text-align: center;
+    }
+    .proof-quote-text {
+      font-family: var(--font-accent); font-style: italic; font-size: 18px;
+      color: var(--voya-navy); line-height: 1.4;
+    }
+    .proof-quote-attr {
+      font-family: var(--font-body); font-size: 12px; color: var(--fg-3);
+      margin-top: 6px;
+    }
+
+    /* ─── PRICING ─────────────────────────────────────────────────── */
+    .pricing-intro {
+      text-align: center; max-width: 680px; margin: 0 auto 52px;
+    }
+    .pricing-headline {
+      font-family: var(--font-display); font-weight: 700; font-size: 48px;
+      line-height: 1.05; letter-spacing: -0.025em; color: var(--voya-navy);
+      margin: 14px 0 14px;
+    }
+    .pricing-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+      align-items: start;
+    }
+    .tier-card {
+      border-radius: 28px; padding: 28px; position: relative;
+    }
+    .tier-light {
+      background: #fff; box-shadow: var(--shadow-md);
+    }
+    .tier-highlight {
+      background: var(--voya-navy);
+      box-shadow: 0 24px 60px rgba(12,68,124,0.30);
+      transform: translateY(-14px) scale(1.025);
+    }
+    .tier-badge {
+      position: absolute; top: -12px; left: 26px;
+      background: var(--voya-amber); color: #fff;
+      padding: 4px 14px; border-radius: 999px;
+      font-family: var(--font-display); font-weight: 700; font-size: 11px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+    }
+    .tier-name { font-family: var(--font-display); font-weight: 700; font-size: 17px; }
+    .tier-name.light { color: var(--voya-ocean); }
+    .tier-name.dark  { color: var(--voya-amber); }
+    .tier-price-row { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; }
+    .tier-price {
+      font-family: var(--font-display); font-weight: 700; font-size: 52px;
+      letter-spacing: -0.03em;
+    }
+    .tier-price.light { color: var(--voya-navy); }
+    .tier-price.dark  { color: #fff; }
+    .tier-period { font-family: var(--font-body); font-size: 13.5px; }
+    .tier-period.light { color: var(--fg-3); }
+    .tier-period.dark  { color: rgba(241,239,232,0.65); }
+    .tier-desc { font-family: var(--font-body); font-size: 14px; line-height: 1.5; margin: 8px 0 22px; }
+    .tier-desc.light { color: var(--fg-2); }
+    .tier-desc.dark  { color: rgba(241,239,232,0.78); }
+    .tier-feats { list-style: none; display: flex; flex-direction: column; gap: 9px; margin-bottom: 26px; }
+    .tier-feat {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-family: var(--font-body); font-size: 13.5px; line-height: 1.45;
+    }
+    .tier-feat.light { color: var(--voya-ink); }
+    .tier-feat.dark  { color: var(--voya-cream); }
+    .tier-feat-icon { flex-shrink: 0; margin-top: 1px; color: var(--voya-amber); }
+
+    /* ─── FINAL CTA ───────────────────────────────────────────────── */
+    .final-cta-wrap { text-align: center; position: relative; }
+    .final-headline {
+      font-family: var(--font-display); font-weight: 700; font-size: clamp(48px, 5.5vw, 72px);
+      line-height: 1; letter-spacing: -0.03em; color: var(--voya-cream); margin-bottom: 18px;
+    }
+    .final-headline .accent { color: var(--voya-amber); }
+    .final-sub {
+      font-family: var(--font-body); font-size: 18px;
+      color: rgba(241,239,232,0.76); max-width: 500px;
+      margin: 0 auto 34px; line-height: 1.5;
+    }
+    .final-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    /* ─── FOOTER ──────────────────────────────────────────────────── */
+    footer { background: var(--voya-navy); color: var(--voya-cream); padding: 72px 40px 28px; }
+    .footer-inner { max-width: 1200px; margin: 0 auto; }
+    .footer-grid {
+      display: grid; grid-template-columns: 1.6fr repeat(4, 1fr);
+      gap: 32px; margin-bottom: 56px;
+    }
+    .footer-brand-tagline {
+      font-family: var(--font-body); font-size: 14px; line-height: 1.6;
+      color: rgba(241,239,232,0.65); margin-top: 16px; max-width: 270px;
+    }
+    .footer-col-head {
+      font-family: var(--font-display); font-weight: 700; font-size: 12px;
+      color: var(--voya-amber); letter-spacing: 0.12em;
+      text-transform: uppercase; margin-bottom: 14px;
+    }
+    .footer-links { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-links a {
+      font-family: var(--font-body); font-size: 14px;
+      color: rgba(241,239,232,0.72); transition: color 140ms;
+    }
+    .footer-links a:hover { color: var(--voya-cream); }
+    .footer-bottom {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 24px; border-top: 1px solid rgba(241,239,232,0.10);
+      font-family: var(--font-body); font-size: 12px;
+      color: rgba(241,239,232,0.45); flex-wrap: wrap; gap: 14px;
+    }
+    .footer-bottom-links { display: flex; gap: 18px; }
+    .footer-bottom-links a { color: inherit; transition: color 140ms; }
+    .footer-bottom-links a:hover { color: rgba(241,239,232,0.75); }
+
+    /* ─── DASHED ROUTE SVG ────────────────────────────────────────── */
+    .route-svg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .route-path {
+      fill: none; stroke: var(--voya-ocean);
+      stroke-width: 2.5; stroke-dasharray: 2 7; stroke-linecap: round;
+    }
+    .route-path-light {
+      stroke: rgba(55,138,221,0.40);
+    }
+    .route-path-cream {
+      stroke: rgba(241,239,232,0.45);
+    }
+
+    /* Animated draw-on hero route */
+    .route-draw {
+      stroke-dasharray: 900; stroke-dashoffset: 900;
+      animation: routeDraw 1.4s 0.4s cubic-bezier(0.2,0.8,0.2,1) forwards;
+    }
+
+    /* ─── MOBILE ONLY (desktop layout unchanged) ─────────────────── */
+    @media (max-width: 960px) {
+      .hero-grid, .hiw-grid { grid-template-columns: 1fr; gap: 48px; }
+      .hiw-sticky { position: static; }
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .dest-grid { grid-template-columns: repeat(2, 1fr); }
+      .footer-grid { grid-template-columns: repeat(2, 1fr); }
+      .footer-grid > div:first-child { grid-column: 1 / -1; }
+      .nav-links { display: none; }
+    }
+    @media (max-width: 640px) {
+      nav { padding: 0 16px; }
+      .nav-inner { gap: 12px; }
+      .section { padding: 64px 16px; }
+      section.bg-navy { padding: 72px 16px !important; }
+      footer { padding: 56px 16px 24px; }
+      .hero-headline { font-size: 46px; }
+      .hero-trust { flex-wrap: wrap; gap: 8px 12px; }
+      .plan-card { transform: none; padding: 16px; }
+      .pin-sticker { right: 4px; }
+      .pin-sticker-b { left: 4px; }
+      .features-grid, .dest-grid { grid-template-columns: 1fr; }
+      .hiw-headline, .dest-headline, .pricing-headline { font-size: 34px; }
+      .step-card { grid-template-columns: 44px 1fr; gap: 14px; padding: 20px; }
+      .step-num { font-size: 30px; }
+      .proof-strip { gap: 28px; padding: 40px 16px; }
+      .proof-sep { display: none; }
+      .tier-highlight { transform: none; }
+      .btn-lg { padding: 16px 24px; font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="main-page">
+
+    <!-- NAV -->
+    <nav>
+      <div class="nav-inner">
+        <a href="#">
+          <img src="/shared/assets/voya-logo-light.png" alt="voya." style="height: 30px; width: auto; object-fit: cover" />
+        </a>
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#destinations">Destinations</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+        </ul>
+        <div class="nav-right">
+          <a href="/login" class="nav-login">Log in</a>
+          <a href="/login?mode=signup" class="btn btn-primary btn-sm">
+            Start free <i data-lucide="arrow-right" style="width:14px;height:14px;"></i>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="section bg-cream" style="padding-top:72px;padding-bottom:88px;position:relative;overflow:hidden;">
+      <svg class="route-svg" viewBox="0 0 1200 700" preserveAspectRatio="none">
+        <path class="route-path route-draw route-path-light"
+              d="M -20 420 C 200 200, 460 520, 700 310 S 1060 260, 1240 380"/>
+      </svg>
+      <div class="section-inner">
+        <div class="hero-grid">
+          <!-- Left -->
+          <div>
+            <div class="eyebrow reveal">AI TRAVEL OPERATING SYSTEM</div>
+            <h1 class="hero-headline reveal reveal-delay-1">
+              Travel more.<br/>
+              <span class="accent">Plan less.</span>
+            </h1>
+            <p class="hero-body reveal reveal-delay-2">
+              A well-traveled friend who already knows where you're going — and where to eat when you get there.
+              Voya plans your whole trip day by day, with real places and estimated costs. You just show up.
+            </p>
+            <div style="display:flex;gap:12px;margin-top:32px;flex-wrap:wrap;" class="reveal reveal-delay-3">
+              <a href="/login?mode=signup" class="btn btn-amber btn-lg">
+                Plan my trip free
+                <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+              </a>
+              <a href="#features" class="btn btn-outline btn-lg">
+                <i data-lucide="play-circle" style="width:18px;height:18px;"></i>
+                See how it works
+              </a>
+            </div>
+            <div class="hero-trust reveal reveal-delay-4">
+              <span>Free tier — no card</span>
+              <span class="hero-trust-sep">·</span>
+              <span>Full itinerary in under a minute</span>
+              <span class="hero-trust-sep">·</span>
+              <span>Any destination</span>
+            </div>
+          </div>
+
+          <!-- Right: AI plan card -->
+          <div style="position:relative;" class="reveal reveal-delay-2">
+            <div class="plan-card">
+              <div class="plan-card-header">
+                <div class="plan-card-avatar">
+                  <i data-lucide="sparkles" style="width:18px;height:18px;"></i>
+                </div>
+                <div style="font-family:var(--font-body);font-size:13px;color:var(--fg-2);">
+                  You · <strong style="color:var(--voya-navy);font-weight:600;">10 days in Japan, under $3k, food + temples</strong>
+                </div>
+              </div>
+              <div class="plan-card-body">
+                <div class="plan-card-title">Here's your plan</div>
+                <div class="plan-card-sub">Tokyo · Hakone · Kyoto · Osaka — May 14–24</div>
+                <div class="plan-itinerary">
+                  <div class="plan-row">
+                    <div class="plan-row-icon"><i data-lucide="plane" style="width:13px;height:13px;"></i></div>
+                    <div class="plan-day">Day 1</div>
+                    <div class="plan-activity">Land Narita 14:20</div>
+                  </div>
+                  <div class="plan-row">
+                    <div class="plan-row-icon"><i data-lucide="utensils" style="width:13px;height:13px;"></i></div>
+                    <div class="plan-day">Day 2</div>
+                    <div class="plan-activity">Tsukiji breakfast tour</div>
+                  </div>
+                  <div class="plan-row">
+                    <div class="plan-row-icon"><i data-lucide="waves" style="width:13px;height:13px;"></i></div>
+                    <div class="plan-day">Day 4</div>
+                    <div class="plan-activity">Hakone onsen + ryokan</div>
+                  </div>
+                  <div class="plan-row">
+                    <div class="plan-row-icon"><i data-lucide="sun" style="width:13px;height:13px;"></i></div>
+                    <div class="plan-day">Day 7</div>
+                    <div class="plan-activity">Fushimi Inari at sunrise</div>
+                  </div>
+                </div>
+              </div>
+              <div class="plan-card-footer">
+                <div class="plan-card-meta">
+                  <strong style="color:var(--voya-navy);font-family:var(--font-display);">Sample plan</strong> · $2,830 est.
+                </div>
+                <a href="/login?mode=signup" class="btn btn-primary btn-sm">
+                  Book it all
+                  <i data-lucide="arrow-right" style="width:13px;height:13px;"></i>
+                </a>
+              </div>
+              <!-- Stickers -->
+              <div class="pin-sticker">
+                <i data-lucide="map-pin" style="width:13px;height:13px;"></i>
+                Kyoto · day 7
+              </div>
+              <div class="pin-sticker-b">
+                <i data-lucide="zap" style="width:13px;height:13px;"></i>
+                AI-generated
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SOCIAL PROOF STRIP -->
+    <section class="bg-white">
+      <div class="proof-strip section-inner reveal">
+        <div class="proof-stat">
+          <div class="proof-num">Day-by-day</div>
+          <div class="proof-label">Itineraries with real places</div>
+        </div>
+        <div class="proof-sep"></div>
+        <div class="proof-stat">
+          <div class="proof-num">6-part</div>
+          <div class="proof-label">Budget breakdown per trip</div>
+        </div>
+        <div class="proof-sep"></div>
+        <div class="proof-stat">
+          <div class="proof-num">24/7</div>
+          <div class="proof-label">AI travel assistant</div>
+        </div>
+        <div class="proof-sep"></div>
+        <div class="proof-quote">
+          <div class="proof-quote-text">"Tell Voya where, when and your budget. It drafts the whole trip."</div>
+          <div class="proof-quote-attr">— How Voya works</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" class="section bg-white">
+      <div class="section-inner">
+        <div style="text-align:center;max-width:740px;margin:0 auto;" class="reveal">
+          <div class="eyebrow">WHAT YOU GET</div>
+          <h2 style="font-family:var(--font-display);font-weight:700;font-size:clamp(36px,4.5vw,52px);line-height:1.05;letter-spacing:-0.025em;color:var(--voya-navy);margin:14px 0 14px;">
+            One platform.<br/>Zero agencies. Zero tabs.
+          </h2>
+          <p style="font-family:var(--font-body);font-size:18px;color:var(--fg-2);line-height:1.5;">
+            Not forty open tabs. One request gives you a day-by-day plan, a budget breakdown and an assistant for everything else.
+          </p>
+        </div>
+        <div class="features-grid">
+          <div class="feature-card reveal">
+            <div class="feature-icon"><i data-lucide="sparkles" style="width:22px;height:22px;"></i></div>
+            <div class="feature-title">AI Trip Architect</div>
+            <div class="feature-body">A full itinerary from one request. Budget, dates, group size and travel style — handled. Day-by-day plans with real places and estimated costs.</div>
+          </div>
+          <div class="feature-card reveal reveal-delay-1">
+            <div class="feature-icon"><i data-lucide="ticket" style="width:22px;height:22px;"></i></div>
+            <div class="feature-title">All your trips in one place</div>
+            <div class="feature-body">Save any plan to your wishlist or mark it as booked. Every trip lives in My Trips with its full itinerary, one click away.</div>
+          </div>
+          <div class="feature-card reveal reveal-delay-2">
+            <div class="feature-icon"><i data-lucide="navigation-2" style="width:22px;height:22px;"></i></div>
+            <div class="feature-title">AI travel assistant</div>
+            <div class="feature-body">Ask anything — best time to visit, visas, what to pack, where to eat. Voya AI answers in seconds, right from your dashboard.</div>
+          </div>
+          <div class="feature-card reveal reveal-delay-1">
+            <div class="feature-icon"><i data-lucide="refresh-cw" style="width:22px;height:22px;"></i></div>
+            <div class="feature-title">Personalised to you</div>
+            <div class="feature-body">Set your home airport, budget tier and travel style once in your profile. Every new itinerary is built around them.</div>
+          </div>
+          <div class="feature-card reveal reveal-delay-2">
+            <div class="feature-icon"><i data-lucide="wallet" style="width:22px;height:22px;"></i></div>
+            <div class="feature-title">Budget breakdown</div>
+            <div class="feature-body">Every plan estimates flights, stays, food, activities, transport and extras — scaled to the budget you set.</div>
+          </div>
+          <div class="feature-card reveal reveal-delay-3">
+            <div class="feature-icon"><i data-lucide="shield-check" style="width:22px;height:22px;"></i></div>
+            <div class="feature-title">Track every trip</div>
+            <div class="feature-body">Move trips between Planning, Upcoming, Completed and Wishlist as plans firm up. Update or delete them any time.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how" class="section bg-cream" style="position:relative;overflow:hidden;">
+      <div class="section-inner">
+        <div class="hiw-grid">
+          <div class="hiw-sticky reveal">
+            <div class="eyebrow">HOW IT WORKS</div>
+            <h2 class="hiw-headline">From "I want to go" to the best trip of your life.</h2>
+            <p class="hiw-body">Four steps from a vague idea to a plan you can actually follow.</p>
+            <a href="/login?mode=signup" class="btn btn-primary btn-md">
+              Try it free
+              <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+            </a>
+          </div>
+          <div class="steps">
+            <div class="step-card reveal">
+              <div class="step-num amber">01</div>
+              <div>
+                <div class="step-title">Tell Voya what you want</div>
+                <div class="step-body">Pick a destination, your dates, a budget and a travel style. That's all it takes.</div>
+              </div>
+            </div>
+            <div class="step-card reveal reveal-delay-1">
+              <div class="step-num ocean">02</div>
+              <div>
+                <div class="step-title">Get a full plan in seconds</div>
+                <div class="step-body">A day-by-day itinerary with real hotels, restaurants and landmarks, plus estimated costs for every part of the trip.</div>
+              </div>
+            </div>
+            <div class="step-card reveal reveal-delay-2">
+              <div class="step-num ocean">03</div>
+              <div>
+                <div class="step-title">Save it to My Trips</div>
+                <div class="step-body">Keep it on your wishlist or mark it as booked. Your full itinerary and budget stay one click away.</div>
+              </div>
+            </div>
+            <div class="step-card reveal reveal-delay-3">
+              <div class="step-num ocean">04</div>
+              <div>
+                <div class="step-title">Ask Voya anything</div>
+                <div class="step-body">Visas, weather, what to pack, where to eat — the AI assistant on your dashboard answers in seconds.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DESTINATIONS -->
+    <section id="destinations" class="section bg-white">
+      <div class="section-inner">
+        <div class="dest-header reveal">
+          <div>
+            <div class="eyebrow">POPULAR PICKS</div>
+            <h2 class="dest-headline">Where to go next</h2>
+          </div>
+          <a href="/app/explore" class="btn btn-outline btn-md">
+            All destinations
+            <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+          </a>
+        </div>
+        <div class="dest-grid">
+          <a href="/app/plan?destination=Portugal" class="dest-card reveal">
+            <div class="dest-img" style="background:linear-gradient(160deg,#6FAAEA 0%,#1E62AC 100%);">
+              <div style="position:absolute;inset:0;background:linear-gradient(to bottom, transparent 30%, rgba(12,68,124,0.45));"></div>
+              <div class="dest-city">Lisbon</div>
+              <div class="dest-country">Portugal</div>
+            </div>
+            <div class="dest-card-foot">
+              <div>
+                <div class="dest-price">Plan this trip</div>
+                <div class="dest-price-sub">Free AI itinerary</div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--voya-ocean);"></i>
+            </div>
+          </a>
+          <a href="/app/plan?destination=Japan" class="dest-card reveal reveal-delay-1">
+            <div class="dest-img" style="background:linear-gradient(160deg,#F6CD83 0%,#D8881A 100%);">
+              <div style="position:absolute;inset:0;background:linear-gradient(to bottom, transparent 30%, rgba(135,82,10,0.40));"></div>
+              <div class="dest-city">Kyoto</div>
+              <div class="dest-country">Japan</div>
+            </div>
+            <div class="dest-card-foot">
+              <div>
+                <div class="dest-price">Plan this trip</div>
+                <div class="dest-price-sub">Free AI itinerary</div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--voya-ocean);"></i>
+            </div>
+          </a>
+          <a href="/app/plan?destination=Mexico" class="dest-card reveal reveal-delay-2">
+            <div class="dest-img" style="background:linear-gradient(160deg,#9FC7F1 0%,#2978C9 100%);">
+              <div style="position:absolute;inset:0;background:linear-gradient(to bottom, transparent 30%, rgba(12,68,124,0.45));"></div>
+              <div class="dest-city">Mexico City</div>
+              <div class="dest-country">Mexico</div>
+            </div>
+            <div class="dest-card-foot">
+              <div>
+                <div class="dest-price">Plan this trip</div>
+                <div class="dest-price-sub">Free AI itinerary</div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--voya-ocean);"></i>
+            </div>
+          </a>
+          <a href="/app/plan?destination=Iceland" class="dest-card reveal reveal-delay-3">
+            <div class="dest-img" style="background:linear-gradient(160deg,#CFE3F8 0%,#0C447C 100%);">
+              <div style="position:absolute;inset:0;background:linear-gradient(to bottom, transparent 30%, rgba(7,48,79,0.50));"></div>
+              <div class="dest-city">Reykjavík</div>
+              <div class="dest-country">Iceland</div>
+            </div>
+            <div class="dest-card-foot">
+              <div>
+                <div class="dest-price">Plan this trip</div>
+                <div class="dest-price-sub">Free AI itinerary</div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--voya-ocean);"></i>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRICING -->
+    <section id="pricing" class="section bg-cream">
+      <div class="section-inner">
+        <div class="pricing-intro reveal">
+          <div class="eyebrow">PRICING</div>
+          <h2 class="pricing-headline">Free. No catch.</h2>
+          <p style="font-family:var(--font-body);font-size:17px;color:var(--fg-2);line-height:1.5;">
+            Voya is free to use. Sign up, plan a trip and save it — no card required.
+          </p>
+        </div>
+        <div class="pricing-grid" style="grid-template-columns:minmax(0,400px);justify-content:center;">
+          <!-- Free (the only plan) -->
+          <div class="tier-card tier-highlight reveal">
+            <div class="tier-badge">Free</div>
+            <div class="tier-name dark">Voya</div>
+            <div class="tier-price-row">
+              <span class="tier-price dark">$0</span>
+              <span class="tier-period dark">no card needed</span>
+            </div>
+            <div class="tier-desc dark">Everything Voya does today, free.</div>
+            <ul class="tier-feats">
+              <li class="tier-feat dark"><i data-lucide="check" class="tier-feat-icon" style="width:15px;height:15px;"></i><span>AI itinerary generation</span></li>
+              <li class="tier-feat dark"><i data-lucide="check" class="tier-feat-icon" style="width:15px;height:15px;"></i><span>Estimated budget breakdown</span></li>
+              <li class="tier-feat dark"><i data-lucide="check" class="tier-feat-icon" style="width:15px;height:15px;"></i><span>Save and track trips in My Trips</span></li>
+              <li class="tier-feat dark"><i data-lucide="check" class="tier-feat-icon" style="width:15px;height:15px;"></i><span>AI travel assistant chat</span></li>
+              <li class="tier-feat dark"><i data-lucide="check" class="tier-feat-icon" style="width:15px;height:15px;"></i><span>Personalised to your profile</span></li>
+            </ul>
+            <a href="/login?mode=signup" class="btn btn-amber btn-md" style="width:100%;justify-content:center;">
+              Start free
+              <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="section bg-navy" style="padding:96px 40px;position:relative;overflow:hidden;">
+      <svg class="route-svg" viewBox="0 0 1200 360" preserveAspectRatio="none">
+        <path class="route-path route-path-cream"
+              d="M -20 200 C 240 30, 480 320, 720 120 S 1080 60, 1240 200"/>
+      </svg>
+      <div class="section-inner">
+        <div class="final-cta-wrap reveal">
+          <h2 class="final-headline">The trip is waiting.<br/><span class="accent">Let's go.</span></h2>
+          <p class="final-sub" style="height: 2px">Plan your first trip in under a minute. Free, no card required.</p>
+          <div class="final-btns">
+            <a href="/login?mode=signup" class="btn btn-amber btn-lg">
+              Plan my trip free
+              <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+            </a>
+            <a href="#how" class="btn btn-ghost btn-lg">See how it works</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer id="footer">
+      <div class="footer-inner">
+        <div class="footer-grid">
+          <div>
+            <img src="/shared/assets/voya-logo-dark.png" alt="voya." style="height:32px;width:auto;" />
+            <p class="footer-brand-tagline">
+              AI trip planning. Day-by-day itineraries, budget breakdowns and a travel assistant — so you spend less time on logistics and more time living the trip.
+            </p>
+          </div>
+          <div>
+            <div class="footer-col-head">Product</div>
+            <ul class="footer-links">
+              <li><a href="#features">Features</a></li>
+              <li><a href="#how">How it works</a></li>
+              <li><a href="#destinations">Destinations</a></li>
+              <li><a href="#pricing">Pricing</a></li>
+            </ul>
+          </div>
+          <div>
+            <div class="footer-col-head">Plan</div>
+            <ul class="footer-links">
+              <li><a href="/app/plan">Plan a trip</a></li>
+              <li><a href="/app/explore">Explore</a></li>
+              <li><a href="/app/trips">My trips</a></li>
+              <li><a href="/app">Dashboard</a></li>
+            </ul>
+          </div>
+          <div>
+            <div class="footer-col-head">Destinations</div>
+            <ul class="footer-links">
+              <li><a href="/app/plan?destination=Portugal">Portugal</a></li>
+              <li><a href="/app/plan?destination=Japan">Japan</a></li>
+              <li><a href="/app/plan?destination=Mexico">Mexico</a></li>
+              <li><a href="/app/plan?destination=Iceland">Iceland</a></li>
+            </ul>
+          </div>
+          <div>
+            <div class="footer-col-head">Account</div>
+            <ul class="footer-links">
+              <li><a href="/login">Log in</a></li>
+              <li><a href="/login?mode=signup">Sign up</a></li>
+              <li><a href="/app/profile">Profile</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>© 2026 Voya — travel more, plan less.</span>
+          <div class="footer-bottom-links">
+            <a href="#features">Features</a>
+            <a href="/login">Log in</a>
+            <a href="/login?mode=signup">Sign up</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+  </div><!-- /main-page -->
+
+  <script>
+    // ─── INIT ─────────────────────────────────────────────────────────
+    lucide.createIcons();
+
+    // ─── SCROLL REVEAL ────────────────────────────────────────────────
+    requestAnimationFrame(() => {
+      const els = document.querySelectorAll('.reveal');
+      const io  = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+      }, { threshold: 0.12 });
+      els.forEach(el => io.observe(el));
+    });
+  </script>
+
+</body>
+</html>
