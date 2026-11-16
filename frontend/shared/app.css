@@ -1,0 +1,42 @@
+/* app.css — mobile-only layout rules for the signed-in app pages.
+ * Nothing here applies above 860px, so the desktop design is unchanged.
+ * Components use inline styles, hence the !important overrides. */
+@media (max-width: 860px) {
+  html, body { height: auto !important; overflow: auto !important; }
+
+  .v-shell { flex-direction: column !important; height: auto !important; min-height: 100vh; overflow: visible !important; }
+
+  /* Sidebar becomes a sticky top bar with icon-only nav */
+  .v-sidebar {
+    width: 100% !important; height: auto !important;
+    flex-direction: row !important; align-items: center !important; gap: 6px;
+    padding: 8px 10px !important; position: sticky !important; top: 0; z-index: 300;
+    border-right: 0 !important; border-bottom: 1px solid rgba(44,44,42,0.08);
+  }
+  .v-sidebar .v-logo { padding: 0 4px 0 2px !important; }
+  .v-sidebar .v-logo img { height: 22px !important; }
+  .v-sidebar .v-nav { flex-direction: row !important; justify-content: center; gap: 0 !important; flex: 1; }
+  .v-sidebar .v-nav button { padding: 9px !important; }
+  .v-sidebar .v-nav-label, .v-sidebar .v-divider, .v-sidebar .v-user-text { display: none !important; }
+  .v-sidebar .v-user { padding: 0 !important; background: transparent !important; gap: 2px !important; }
+  .v-sidebar .v-user > div:first-child { width: 28px !important; height: 28px !important; font-size: 11px !important; }
+
+  .v-main { overflow: visible !important; padding: 20px 16px 48px !important; flex: none !important; width: 100%; }
+  .v-main-flush { overflow: visible !important; flex: none !important; width: 100%; }
+
+  /* Utilities added as classNames on existing elements */
+  .m-stack { grid-template-columns: 1fr !important; }
+  .m-2col  { grid-template-columns: 1fr 1fr !important; }
+  .m-wrap  { flex-wrap: wrap !important; }
+  .m-col   { flex-direction: column !important; align-items: stretch !important; }
+  .m-pad   { padding-left: 16px !important; padding-right: 16px !important; }
+  .m-hide  { display: none !important; }
+  .m-static { position: static !important; }
+  .m-full  { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+  .m-h1    { font-size: 28px !important; }
+}
+
+@media (max-width: 480px) {
+  .v-sidebar .v-logo { display: none !important; }
+  .m-2col { grid-template-columns: 1fr !important; }
+}

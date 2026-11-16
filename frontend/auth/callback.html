@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>voya. — Signing you in…</title>
+  <link rel="stylesheet" href="/shared/colors_and_type.css">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:var(--font-body);background:var(--voya-cream);
+         display:flex;flex-direction:column;align-items:center;justify-content:center;
+         min-height:100vh;gap:16px;padding:24px;text-align:center}
+    .spinner{width:40px;height:40px;border:3px solid rgba(55,138,221,0.2);
+             border-top-color:var(--voya-ocean);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    p{font-size:15px;color:var(--voya-navy);font-weight:600;max-width:360px;line-height:1.5}
+    a{color:var(--voya-ocean);font-weight:600;font-size:14px;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="spinner" id="spinner"></div>
+  <p id="msg">Signing you in…</p>
+  <a href="/login" id="back" hidden>← Back to log in</a>
+  <script src="/shared/voya.js"></script>
+  <script>
+    (function () {
+      var hash  = new URLSearchParams(window.location.hash.substring(1));
+      var query = new URLSearchParams(window.location.search);
+      var token = hash.get('access_token');
+      // Remove the token from the address bar and history right away.
+      history.replaceState(null, '', '/auth/callback');
+
+      function fail(text) {
+        document.getElementById('spinner').hidden = true;
+        document.getElementById('msg').textContent = text;
+        document.getElementById('back').hidden = false;
+      }
+
+      var err = hash.get('error_description') || query.get('error_description');
+      if (err) { fail('Google sign-in was cancelled or failed: ' + err.replace(/\+/g, ' ')); return; }
+      if (!token) { fail('Google sign-in did not return a session. Please try again.'); return; }
+
+      Voya.api('/api/auth/oauth', { method: 'POST', body: { access_token: token } }).then(function (r) {
+        if (!r.ok) { fail(r.error); return; }
+        Voya.setSession(r.data.token, r.data.user);
+        window.location.replace(Voya.consumeNext());
+      });
+    })();
+  </script>
+</body>
+</html>

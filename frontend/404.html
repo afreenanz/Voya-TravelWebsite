@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>voya. — Page not found</title>
+  <link rel="stylesheet" href="/shared/colors_and_type.css">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:var(--font-body);background:var(--voya-cream);color:var(--fg-1);
+         min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+         padding:24px 16px;text-align:center;position:relative;overflow:hidden}
+    svg.route{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+    img{height:32px;margin-bottom:40px;position:relative}
+    .code{font-family:var(--font-display);font-weight:700;font-size:clamp(72px,14vw,120px);
+          line-height:1;letter-spacing:-0.04em;color:var(--voya-navy);position:relative}
+    .code span{color:var(--voya-amber)}
+    h1{font-family:var(--font-display);font-weight:700;font-size:26px;color:var(--voya-navy);
+       margin:14px 0 8px;letter-spacing:-0.02em;position:relative}
+    p{font-size:15px;color:var(--fg-2);max-width:380px;line-height:1.55;margin-bottom:28px;position:relative}
+    .btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;position:relative}
+    a.btn{font-family:var(--font-display);font-weight:700;font-size:15px;padding:14px 24px;
+          border-radius:999px;text-decoration:none;transition:transform 140ms}
+    a.btn:hover{transform:translateY(-2px)}
+    .primary{background:var(--voya-amber);color:#fff;box-shadow:var(--shadow-amber)}
+    .outline{color:var(--voya-navy);box-shadow:inset 0 0 0 1.5px var(--voya-navy)}
+  </style>
+</head>
+<body>
+  <svg class="route" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M -20 520 C 220 300, 480 620, 720 400 S 1080 300, 1240 420" fill="none"
+          stroke="rgba(55,138,221,0.30)" stroke-width="2.5" stroke-dasharray="2 7" stroke-linecap="round"/>
+  </svg>
+  <a href="/"><img src="/shared/assets/voya-logo-light.png" alt="voya."></a>
+  <div class="code">4<span>0</span>4</div>
+  <h1>This route doesn't exist</h1>
+  <p>The page you're looking for has moved or never existed. Let's get you back on track.</p>
+  <div class="btns">
+    <a class="btn primary" href="/app">Go to dashboard</a>
+    <a class="btn outline" href="/">Back to home</a>
+  </div>
+</body>
+</html>
