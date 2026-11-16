@@ -1,6 +1,15 @@
-node_modules/
+# Secrets
 .env
-.env.save
-.env.local
+.env.*
+!.env.example
+
+# Python
 __pycache__/
 *.pyc
+.venv/
+venv/
+
+# OS / tooling
+.DS_Store
+.vercel/
+node_modules/
