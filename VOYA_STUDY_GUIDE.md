@@ -1,6 +1,8 @@
 # Voya Travel Website — Complete Study Guide
 ### Everything you need to ace an interview on this project
 
+Live: https://voya-travel-website-eta.vercel.app
+
 ---
 
 ## Table of Contents
@@ -11,27 +13,29 @@
 4. [System Architecture](#4-system-architecture)
 5. [Database Design](#5-database-design)
 6. [Authentication System](#6-authentication-system)
-7. [Backend — Every API Endpoint](#7-backend--every-api-endpoint)
+7. [Backend — Every Route](#7-backend--every-route)
 8. [AI Integration](#8-ai-integration)
 9. [Frontend — Every Page & Component](#9-frontend--every-page--component)
 10. [Data Flow — How Everything Connects](#10-data-flow--how-everything-connects)
 11. [LocalStorage — Client-Side State](#11-localstorage--client-side-state)
 12. [Security Practices](#12-security-practices)
-13. [What's Done vs What's Coming](#13-whats-done-vs-whats-coming)
+13. [Deployment](#13-deployment)
 14. [Interview Q&A](#14-interview-qa)
 
 ---
 
 ## 1. Project Overview
 
-**Voya** is an AI-powered travel planning web application. It lets users:
-- Plan trips by entering a destination, dates, budget, and travel style
-- Get a fully AI-generated day-by-day itinerary with real place names and cost breakdowns
-- Save trips to their profile and manage them (view, delete, update status)
+**Voya** is an AI-powered travel planning web app. Users can:
+- Plan a trip by entering a destination, dates, budget, travelers and travel style
+- Get an AI-generated day-by-day itinerary with real place names and an estimated cost breakdown
+- Save trips to a wishlist, mark them as booked (upcoming), completed, or delete them
 - Chat with an AI travel assistant
-- View and edit their profile
+- Keep a profile (home airport, bio, photo) that personalises every new itinerary
 
-**The core idea:** instead of Googling "things to do in Bali" across 10 tabs, Voya generates a complete, personalised itinerary in one click using an AI model.
+**The core idea:** instead of Googling "things to do in Bali" across 10 tabs, Voya drafts a complete, personalised itinerary in one request (usually 15–40 seconds).
+
+**What Voya does not do:** it doesn't sell flights or hotels. "Book it all" saves the plan as an *Upcoming* trip so the user can book each part themselves.
 
 ---
 
@@ -40,699 +44,354 @@
 ### Frontend
 | Tool | Purpose |
 |---|---|
-| **HTML + CSS** | Page structure and styling |
-| **React 18** | UI components (loaded via CDN, not a build tool) |
-| **Babel Standalone** | Transpiles JSX in the browser (no webpack/vite) |
+| **HTML + CSS** | Page structure and styling (designed in Figma, exported as HTML) |
+| **React 18 (CDN, production build)** | UI components, no build step |
+| **Babel Standalone** | Transpiles JSX in the browser |
 | **Lucide Icons** | Icon library (CDN) |
-| **LocalStorage** | Stores logged-in user's email and name client-side |
+| **`shared/voya.js`** | Tiny helper: session token, `Voya.api()` fetch wrapper, auth redirects |
 
-> **Why React via CDN?** The frontend was designed in Figma and exported as HTML handoff files. Using React via CDN means no build step is needed — the JSX files are served directly and transpiled in the browser. This makes the project simpler to run but slightly slower to load.
+> **Why React via CDN?** The UI came from Figma handoff exports. Serving the JSX directly and transpiling in the browser means zero build tooling. Trade-off: a slightly slower first load (the browser downloads Babel).
 
 ### Backend
 | Tool | Purpose |
 |---|---|
-| **Python 3** | Language |
-| **Flask** | Web framework — handles all API routes |
-| **flask-cors** | Allows the frontend (different port/origin) to call the backend |
-| **supabase-py** | Python SDK for Supabase database operations |
-| **python-dotenv** | Loads secret keys from `.env` file |
-| **werkzeug** | Password hashing (`generate_password_hash`, `check_password_hash`) |
-| **requests** | Makes HTTP calls to the OpenRouter AI API |
+| **Python 3.12+ / Flask 3** | Serves the frontend files and the JSON API under `/api` |
+| **PyJWT** | Signs and verifies the app's own session tokens (HS256) |
+| **supabase-py** | Database + storage access (service-role key, server-side only) and Supabase Auth calls (OTP, Google) |
+| **werkzeug.security** | Password hashing (`generate_password_hash` / `check_password_hash`, scrypt) |
+| **requests** | Calls the OpenRouter API |
+| **python-dotenv** | Loads `.env` locally |
 
-### Database
+### Database & Auth
 | Tool | Purpose |
 |---|---|
-| **Supabase** | Managed PostgreSQL database (cloud-hosted) |
-| **Supabase Auth** | Built-in Google OAuth + OTP email authentication |
+| **Supabase Postgres** | `users`, `trips`, `searches` tables |
+| **Supabase Auth** | Email one-time codes and Google OAuth |
+| **Supabase Storage** | Public `avatars` bucket for profile photos |
 
 ### AI
 | Tool | Purpose |
 |---|---|
-| **OpenRouter API** | Gateway that routes requests to AI models |
-| **DeepSeek Chat v3** | The actual AI model that generates itineraries and chat replies |
+| **OpenRouter** | One API for many models; model chosen by the `OPENROUTER_MODEL` env var |
+| **DeepSeek Chat v3** (default) | Generates itineraries (JSON mode) and chat replies |
 
-### Version Control
+### Hosting
 | Tool | Purpose |
 |---|---|
-| **Git** | Local version control |
-| **GitHub** | Remote repository (`afreenanz/Voya-TravelWebsite`) |
+| **Vercel** | Runs the Flask app as one Python Vercel Function (Fluid Compute) |
+| **GitHub** | `afreenanz/Voya-TravelWebsite`, pushes to `main` deploy to production |
 
 ---
 
 ## 3. Project Structure
 
 ```
-voya/                               ← Project root
-├── .env                            ← Secret keys (NOT in git)
-├── .gitignore                      ← Tells git what to ignore
+Voya-TravelWebsite/
 ├── backend/
-│   ├── app.py                      ← Entire Flask backend (all API routes)
-│   └── requirements.txt            ← Python packages to install
+│   ├── app.py              ← The whole backend: page routes + /api routes
+│   ├── requirements.txt    ← Pinned Python packages (local installs)
+│   └── __init__.py
 ├── frontend/
-│   └── ALL ZIP FILES/              ← Figma handoff exports
-│       ├── voya-landing-page/
-│       │   └── project/
-│       │       └── Landing Page.html   ← Landing page (standalone HTML)
-│       ├── voya-login-signup/
-│       │   └── project/
-│       │       └── Login.html          ← Login + signup page
-│       └── voya-dashboard /            ← Note: has a trailing space (Figma export quirk)
-│           └── project/
-│               ├── Voya Dashboard.html ← Dashboard shell (loads all JSX)
-│               ├── colors_and_type.css ← Design system: colors, fonts
-│               ├── dashboard/
-│               │   ├── Dashboard.jsx   ← Home screen of the dashboard
-│               │   └── components.jsx  ← Shared UI components (VCard, VSectionHead, etc.)
-│               └── plantrip/
-│                   ├── App.jsx         ← Plan Trip page — coordinates views
-│                   ├── PlanForm.jsx    ← Trip planning form
-│                   ├── ItineraryView.jsx ← Shows generated itinerary
-│                   ├── MyTripsView.jsx ← Shows saved trips
-│                   ├── Sidebar.jsx     ← Left navigation sidebar
-│                   └── data.js         ← Shared constants
-├── static/
-│   └── style.css                   ← Flask static file (minimal)
-└── templates/
-    └── index.html                  ← Flask template (minimal)
+│   ├── landing/index.html  ← Landing page (/)
+│   ├── auth/
+│   │   ├── index.html      ← Login + signup (/login)
+│   │   └── callback.html   ← Google OAuth return page (/auth/callback)
+│   ├── app/                ← The signed-in app (/app/...)
+│   │   ├── index.html      ← Dashboard shell
+│   │   ├── plan.html       ← Plan Trip + My Trips shell
+│   │   ├── explore.html, profile.html
+│   │   ├── dashboard/      ← Dashboard.jsx, components.jsx (shared UI + sidebar)
+│   │   ├── plantrip/       ← App.jsx, PlanForm.jsx, ItineraryView.jsx, MyTripsView.jsx, Sidebar.jsx
+│   │   ├── explore/ExploreApp.jsx
+│   │   └── profile/ProfileApp.jsx
+│   ├── shared/             ← colors_and_type.css, app.css (mobile), voya.js, logos
+│   └── 404.html
+├── supabase/schema.sql     ← Tables, indexes, RLS, grants, avatars bucket
+├── pyproject.toml          ← Python deps for Vercel + entrypoint (backend.app:app)
+├── vercel.json             ← framework: flask, maxDuration: 120s
+├── .env.example            ← Every env var the app reads
+└── README.md
 ```
-
-### Why this folder structure?
-
-The frontend was designed in Figma. When Figma designs are exported as handoff ZIP files, each screen gets its own folder with its own HTML file and assets. That's why there are separate folders for the landing page, login, and dashboard instead of a single `src/` folder.
 
 ---
 
 ## 4. System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                        USER                             │
-└───────────────────────────┬─────────────────────────────┘
-                            │ Browser
-                ┌───────────▼────────────┐
-                │   Frontend (HTML/JSX)  │
-                │   React (CDN/Babel)    │
-                │   localhost:5000/app   │
-                └───────────┬────────────┘
-                            │ HTTP fetch() calls
-                ┌───────────▼────────────┐
-                │   Flask Backend        │
-                │   Python / app.py      │
-                │   localhost:5000       │
-                └──────┬──────────┬──────┘
-                       │          │
-          ┌────────────▼──┐  ┌───▼──────────────┐
-          │  Supabase      │  │  OpenRouter API   │
-          │  (PostgreSQL)  │  │  (DeepSeek AI)    │
-          │  users table   │  │  Trip generation  │
-          │  trips table   │  │  Chat replies     │
-          └───────────────┘  └──────────────────┘
+            Browser
+               │  same origin — no CORS needed
+               ▼
+┌──────────────────────────────────────┐
+│  Vercel Function: Flask (app.py)     │
+│  • serves /, /login, /app/*  (HTML,  │
+│    JSX, CSS, images)                 │
+│  • /api/*  JSON API                  │
+└──────┬───────────────────┬───────────┘
+       │ service-role key  │ API key
+       ▼                   ▼
+┌──────────────┐    ┌───────────────┐
+│ Supabase     │    │ OpenRouter    │
+│ Postgres     │    │ (DeepSeek)    │
+│ Auth/Storage │    └───────────────┘
+└──────────────┘
 ```
 
-**Key point:** Flask serves both the API AND the frontend HTML files. When you visit `localhost:5000/app`, Flask serves `Voya Dashboard.html`. The JavaScript inside that page then makes `fetch()` calls back to `localhost:5000/chat`, `localhost:5000/generate-trip`, etc.
+**Key point:** one origin serves everything. Pages and API share the domain, so the frontend uses relative URLs like `fetch('/api/get-trips')`, and there's no CORS or hard-coded hostname anywhere.
 
 ---
 
 ## 5. Database Design
 
-Voya uses **Supabase (PostgreSQL)**. There are two main tables:
+All tables have **Row Level Security enabled with no policies**, and the public `anon`/`authenticated` roles have no grants. Only the backend's **service-role** key can read or write. See `supabase/schema.sql`.
 
-### `users` Table
-| Column | Type | Description |
+### `users`
+| Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (auto) | Primary key |
-| `name` | TEXT | Display name |
-| `email` | TEXT | Email address (unique) |
-| `password_hash` | TEXT | bcrypt hash (for email/password login) |
-| `full_name` | TEXT | Profile full name |
-| `phone` | TEXT | Phone number |
-| `home_airport` | TEXT | Preferred departure airport |
-| `preferred_budget` | TEXT | Budget preference (e.g. "mid-range") |
-| `travel_style` | TEXT | Travel style (e.g. "adventure") |
-| `bio` | TEXT | Profile bio |
-| `avatar_url` | TEXT | Profile photo URL |
+| `id` | uuid | Primary key |
+| `email` | text | **Unique**, stored lower-case |
+| `name`, `full_name` | text | Display name |
+| `password_hash` | text | Only for email + password accounts |
+| `phone`, `home_airport`, `preferred_budget`, `travel_style`, `bio` | text | Profile, used to personalise prompts |
+| `avatar_url` | text | Public URL in the `avatars` bucket (or Google photo) |
+| `created_at` | timestamptz | `default now()` |
 
-### `trips` Table
-| Column | Type | Description |
+### `trips`
+| Column | Type | Notes |
 |---|---|---|
-| `id` | INT (auto) | Primary key |
-| `user_email` | TEXT | Links trip to a user (foreign key pattern) |
-| `destination` | TEXT | e.g. "Japan" |
-| `cities` | TEXT | e.g. "Tokyo · Kyoto · Osaka" |
-| `flag` | TEXT | Emoji flag e.g. "🇯🇵" |
-| `budget` | TEXT | e.g. "₹1,00,000" |
-| `days` | INT | Number of days |
-| `start_date` | TEXT | e.g. "2025-08-10" |
-| `end_date` | TEXT | e.g. "2025-08-20" |
-| `travelers` | INT | Number of travelers |
-| `travel_style` | TEXT | e.g. "cultural" |
-| `status` | TEXT | One of: `planning`, `upcoming`, `completed`, `wishlist` |
-| `gradient` | TEXT | CSS gradient string for the card thumbnail |
-| `itinerary_json` | JSONB | Full AI-generated itinerary (array of day objects) |
+| `id` | bigint identity | Primary key |
+| `user_email` | text | Owner (indexed) |
+| `destination`, `cities`, `flag`, `budget`, `travel_style`, `gradient` | text | Display data |
+| `days`, `travelers` | int | |
+| `start_date`, `end_date` | text | `YYYY-MM-DD` |
+| `status` | text | `planning` · `upcoming` · `completed` · `wishlist` |
+| `itinerary_json` | jsonb | `{ "days": [...], "cost_breakdown": {...} }` (older rows: just the days array) |
+| `created_at` | timestamptz | |
 
-> **Important:** `user_email` is used instead of a foreign key to the `users` table because Supabase's Auth users and our custom `users` table are separate systems. Using email as the link is simpler and works for this scale.
+### `searches`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint identity | |
+| `user_email` | text | Indexed with `created_at` |
+| `destination` | text | Inserted on every `/api/generate-trip` |
+| `created_at` | timestamptz | Dashboard shows the latest 5 |
+
+> **Why link by email instead of a user id?** Supabase Auth users (OTP/Google) and the custom `users` table are separate systems. Email is the shared identifier across all three login methods.
 
 ---
 
 ## 6. Authentication System
 
-Voya supports **three ways to log in**:
-
-### Method 1 — Google OAuth (via Supabase Auth)
-**Flow:**
-1. User clicks "Continue with Google"
-2. Frontend calls `/auth/google` on the backend
-3. Backend asks Supabase for a Google OAuth URL
-4. User is redirected to Google's login screen
-5. Google redirects back to `/auth/callback`
-6. The callback page extracts the `access_token` from the URL hash
-7. Token is saved to `localStorage` as `voya_access_token`
-8. User is redirected to `/app`
-
+### The session token (all login methods end here)
+After any successful login, Flask issues **its own JWT**:
+```python
+jwt.encode({"sub": email, "name": name, "iss": "voya", "iat": now, "exp": now + 7 days},
+           APP_SECRET_KEY, algorithm="HS256")
 ```
-User → /auth/google → Supabase OAuth URL → Google Login
-→ /auth/callback → extract token → localStorage → /app
-```
+- The frontend stores it in `localStorage` as `voya_token` and sends `Authorization: Bearer <token>` on every `/api` call (via `Voya.api()`).
+- Every user-scoped route is wrapped in `@require_auth`, which verifies the signature, issuer and expiry and sets `g.email`. **The email is never read from the request body or query string.**
+- Missing, expired or tampered token → `401`. The frontend then clears storage and redirects to `/login?next=<page>`.
 
-### Method 2 — OTP Email (Magic Link)
-**Flow:**
-1. User enters email, clicks "Send OTP"
-2. Frontend calls `POST /send-otp` with `{ email }`
-3. Backend calls `supabase.auth.sign_in_with_otp({ email })`
-4. Supabase sends a 6-digit OTP to the user's email
-5. User enters OTP, frontend calls `POST /verify-otp` with `{ email, code }`
-6. Backend calls `supabase.auth.verify_otp(...)` and returns `success: true`
-7. Frontend stores `voya_user_email` in localStorage and redirects to `/app`
+### Method 1 — Email + password
+- **Signup** `POST /api/signup {name, email, password}`: validates (email format, password ≥ 8 chars), rejects duplicates with `409`, hashes the password, inserts the user, returns `{token, user}`.
+- **Login** `POST /api/login-password {email, password}`: checks the hash. A wrong email and a wrong password get the **same** message ("Incorrect email or password.").
 
-### Method 3 — Email + Password
-**Flow:**
-1. **Signup:** `POST /signup` with `{ name, email, password }`
-   - Backend checks if email already exists
-   - Hashes password using `werkzeug.security.generate_password_hash`
-   - Inserts user into Supabase `users` table
-2. **Login:** `POST /login-password` with `{ email, password }`
-   - Fetches user from Supabase by email
-   - Compares input password against stored hash using `check_password_hash`
-   - Returns `{ success: true, user: { name, email } }` on match
+### Method 2 — Email one-time code
+1. `POST /api/check-email`: does an account exist?
+2. `POST /api/send-otp`: Supabase emails a 6-digit code (the "Magic Link" email template must contain `{{ .Token }}`).
+3. `POST /api/verify-otp {email, code}`: Supabase verifies the code. The user row is created if needed, and a Voya token is returned.
 
-> **Why no JWT tokens for email/password?** For simplicity, this app stores the user's email in localStorage and sends it with every request. A production app would use JWT tokens for stateless auth.
+### Method 3 — Google OAuth (Supabase, implicit flow)
+1. `/auth/google` redirects to `SUPABASE_URL/auth/v1/authorize?provider=google&redirect_to=<APP_BASE_URL>/auth/callback`.
+2. Google sends the user back to `/auth/callback#access_token=…`.
+3. `callback.html` POSTs that token to `/api/auth/oauth`. The server verifies it with `supabase.auth.get_user(token)`, upserts the user, and returns a Voya token.
 
----
+> **Why implicit flow and not PKCE?** PKCE needs a code verifier stored between the redirect and the callback. On serverless, those two requests can hit different instances, so the verifier would be lost.
 
-## 7. Backend — Every API Endpoint
+> **Gotcha we hit:** calling `verify_otp` on a *shared* supabase-py client swaps that client's auth header to the user's token, so later DB queries on the same warm instance would run as that user. Auth calls therefore use a fresh throwaway client (`auth_client()`), and only `db()` is shared.
 
-The entire backend lives in `backend/app.py`. Here is every route:
+### Redirect rules
+- Logged-out user opens `/app/...` → `/login?next=/app/...`, and after login they land back where they were.
+- Logged-in user opens `/login` → `/app`.
+- `next` is only honoured if it starts with `/app` (no open redirect).
 
 ---
 
-### `GET /`
-**Purpose:** Health check  
-**Returns:** `{ message: "Voya Backend Running" }`
+## 7. Backend — Every Route
 
----
+### Pages (no auth on the server; the guard runs in the browser because the token lives in localStorage)
+| Route | Serves |
+|---|---|
+| `GET /` | `frontend/landing/index.html` |
+| `GET /login` | `frontend/auth/index.html` (`?mode=signup`, `?next=`) |
+| `GET /app` | Dashboard |
+| `GET /app/plan`, `/app/trips` | Plan Trip / My Trips (`?destination=` prefills, `?trip=<id>` opens one) |
+| `GET /app/explore`, `/app/profile` | Explore, Profile |
+| `GET /app/<file>`, `/shared/<file>`, `/landing/<file>` | JSX, CSS, images |
+| `GET /auth/google`, `/auth/callback` | Google OAuth |
+| anything else | `404.html` |
 
-### `POST /chat`
-**Purpose:** AI travel assistant chat  
-**Request:** `{ message: "...", history: [{ role, content }] }`  
-**What it does:**
-- Builds a message array with system prompt + last 10 turns of history + new message
-- Sends to OpenRouter (DeepSeek model)
-- Returns the AI reply
+### Auth API (public, rate-limited per IP)
+| Route | Body | Returns |
+|---|---|---|
+| `POST /api/check-email` | `{email}` | `{exists}` |
+| `POST /api/signup` | `{name, email, password}` | `{token, user}` |
+| `POST /api/login-password` | `{email, password}` | `{token, user}` |
+| `POST /api/send-otp` | `{email}` | `{message}` |
+| `POST /api/verify-otp` | `{email, code}` | `{token, user}` |
+| `POST /api/auth/oauth` | `{access_token}` | `{token, user}` |
 
-**Returns:** `{ success: true, reply: "..." }`
+### User API (all `@require_auth`)
+| Route | Notes |
+|---|---|
+| `GET /api/me` | `{user: {email, name}}` |
+| `GET /api/profile` / `POST /api/profile` | Read / update profile fields (validated, length-capped) |
+| `POST /api/upload-avatar` | multipart `avatar`; PNG/JPG/WEBP/GIF ≤ 2 MB; path is a hash of the email |
+| `POST /api/save-trip` | `{trip}` → inserts for the token's user, returns the saved trip |
+| `GET /api/get-trips` | The user's trips, newest first |
+| `PATCH /api/update-trip-status/<id>` | `{status}`. Returns `404` if the trip isn't yours |
+| `DELETE /api/delete-trip/<id>` | Returns `404` if the trip isn't yours |
+| `GET /api/searches` / `DELETE /api/searches` | Last 5 searches / clear |
+| `POST /api/generate-trip` | AI itinerary (see §8) |
+| `POST /api/chat` | `{message, history}` → `{reply}` |
 
----
-
-### `GET /auth/google`
-**Purpose:** Start Google OAuth flow  
-**What it does:** Gets OAuth URL from Supabase, redirects user to Google  
-
----
-
-### `GET /auth/callback`
-**Purpose:** Handles Google OAuth redirect  
-**What it does:** Serves a small HTML page that extracts the token from the URL hash and saves it to localStorage, then redirects to `/app`
-
----
-
-### `GET /app` and `GET /app/<filename>`
-**Purpose:** Serve the React dashboard  
-**What it does:** Flask serves the static HTML/JSX/CSS files from the `voya-dashboard` folder
-
----
-
-### `POST /send-otp`
-**Request:** `{ email }`  
-**What it does:** Calls Supabase to send a magic link / OTP email  
-**Returns:** `{ success: true, message: "OTP sent" }`
-
----
-
-### `POST /verify-otp`
-**Request:** `{ email, code }`  
-**What it does:** Verifies the OTP against Supabase Auth  
-**Returns:** `{ success: true }` or `{ success: false, error: "..." }`
-
----
-
-### `GET /profile?email=<email>`
-**Purpose:** Fetch a user's profile  
-**Returns:** `{ success: true, profile: { full_name, email, phone, home_airport, preferred_budget, travel_style, bio, avatar_url } }`
-
----
-
-### `POST /profile`
-**Purpose:** Update a user's profile  
-**Request:** `{ email, full_name?, phone?, home_airport?, preferred_budget?, travel_style?, bio? }`  
-**What it does:** Updates only the provided fields in the `users` table  
-**Returns:** `{ success: true }`
-
----
-
-### `POST /check-email`
-**Request:** `{ email }`  
-**Purpose:** Check if an account exists with this email (used on login page to show login vs signup)  
-**Returns:** `{ exists: true/false }`
-
----
-
-### `POST /signup`
-**Request:** `{ name, email, password }`  
-**What it does:**
-- Checks if email already exists
-- Hashes the password with bcrypt (via werkzeug)
-- Inserts new user into Supabase `users` table
-
-**Returns:** `{ success: true }` or `{ success: false, error: "..." }`
-
----
-
-### `POST /login-password`
-**Request:** `{ email, password }`  
-**What it does:**
-- Fetches user by email from Supabase
-- Uses `check_password_hash` to verify password
-- Returns user info on success
-
-**Returns:** `{ success: true, user: { name, email } }` or `{ success: false, error: "..." }`
-
----
-
-### `POST /save-trip`
-**Request:** `{ user_email: "...", trip: { destination, cities, flag, budget, days, startDate, endDate, travelers, travelStyle, status, gradient, itinerary } }`  
-**What it does:** Inserts a new trip row into Supabase `trips` table, scoped to `user_email`  
-**Returns:** `{ success: true }`
-
----
-
-### `GET /get-trips?user_email=<email>`
-**Purpose:** Fetch all trips for a specific user  
-**What it does:** Queries `trips` table filtered by `user_email`, ordered newest first  
-**Returns:** `{ success: true, trips: [...] }`
-
----
-
-### `PATCH /update-trip-status/<id>`
-**Request:** `{ user_email: "...", status: "planning"|"upcoming"|"completed"|"wishlist" }`  
-**What it does:** Updates the status of one trip, but ONLY if it belongs to `user_email` (security check)  
-**Returns:** `{ success: true }`
-
----
-
-### `DELETE /delete-trip/<id>?user_email=<email>`
-**What it does:** Deletes one trip, ONLY if it belongs to `user_email` (security check)  
-**Returns:** `{ success: true }`
-
----
-
-### `POST /generate-trip`
-**Request:** `{ destination, budget, travel_style, travelers, start_date, end_date, email, from_city }`  
-**What it does:**
-1. Fetches user's profile from Supabase (for personalisation)
-2. Builds a detailed AI prompt (see Section 8)
-3. Sends to OpenRouter API
-4. Parses the JSON response
-5. Returns the full itinerary object
-
-**Returns:** `{ success: true, itinerary: { destination, cities, budget, travel_style, days: [...], cost_breakdown: {...} } }`
+### Error handling
+- Every `/api` response is JSON: `{success: true, ...}` or `{success: false, error: "<friendly message>"}`.
+- Unknown `/api/*` → JSON `404`. Unexpected exceptions → logged server-side, JSON `500` with a generic message. Tracebacks are never sent to the browser.
 
 ---
 
 ## 8. AI Integration
 
-### How Trip Generation Works
+### Trip generation (`POST /api/generate-trip`)
+1. **Validate**: destination, budget and dates required; end ≥ start; max 14 days; 1–20 travelers.
+2. **Rate limit**: 4 per minute per user.
+3. **Record** the search in `searches`.
+4. **Personalise**: read the user's `home_airport`, `preferred_budget`, `travel_style`.
+5. **Prompt**: strict JSON-only instructions, the exact schema, an allowed icon list, real place names, costs scaled to the budget.
+6. **Call OpenRouter** with `response_format: json_object`, `max_tokens: 8192`.
+7. **Parse + validate the schema**: `days` must be a non-empty list, every day needs activities with names, and `cost_breakdown.total` must exist. Unknown icons become `map-pin`.
+8. **Retry once** if the JSON is invalid or incomplete.
 
-**Step 1 — Build the prompt** (`_build_prompt` function)
+**Time budget:** each attempt times out at 55s, total AI time is capped at 100s, and the Vercel function's `maxDuration` is 120s. So the user always gets a friendly error instead of a platform timeout.
 
-The prompt includes:
-- Destination, dates, number of days, budget, travel style, number of travelers
-- User's home airport, preferred budget, travel style (from their profile)
-- Strict instructions to return ONLY JSON (no markdown)
-- The exact JSON schema the AI must return
-- List of allowed icon names (so the frontend can render icons correctly)
-- Rules like: Day 1 must start with arrival, last day ends with departure, use REAL place names, scale costs to budget
-
-**Step 2 — Call OpenRouter**
-
-```python
-requests.post(
-    "https://openrouter.ai/api/v1/chat/completions",
-    headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
-    json={
-        "model": "deepseek/deepseek-chat-v3-0324",
-        "messages": [...],
-        "response_format": {"type": "json_object"},
-        "temperature": 0.8,
-        "max_tokens": 8192,
-    }
-)
-```
-
-**Step 3 — Parse & clean the response**
-
-- Strip any accidental markdown fences (` ```json `)
-- Parse as JSON
-- Fill in any missing fields with defaults
-
-**Step 4 — Return to frontend**
-
-The frontend receives the itinerary and renders it in `ItineraryView.jsx`.
-
-### The Itinerary JSON Structure
-
+### Itinerary JSON
 ```json
 {
-  "destination": "Japan",
-  "cities": "Tokyo · Kyoto · Osaka",
-  "budget": "₹1,00,000",
-  "travel_style": "cultural",
-  "days": [
-    {
-      "day": 1,
-      "title": "Arrival in Tokyo",
-      "theme": "First impressions",
-      "activities": [
-        {
-          "time": "14:00",
-          "icon": "plane-landing",
-          "name": "Arrive at Narita International Airport",
-          "note": "Terminal 2 arrival · ₹0 · collect JR Pass at airport counter"
-        }
-      ]
-    }
-  ],
-  "cost_breakdown": {
-    "flights": { "amount": "₹45,000", "note": "Delhi → Tokyo round trip · Air India · Economy" },
-    "accommodation": { "amount": "₹28,000", "note": "9 nights · APA Hotel Shinjuku · 3-star" },
-    "food": { "amount": "₹12,000", "note": "All meals, street food, dining" },
-    "activities": { "amount": "₹8,000", "note": "Entry fees, tours, experiences" },
-    "local_transport": { "amount": "₹5,000", "note": "JR Pass, metro, buses" },
-    "misc": { "amount": "₹2,000", "note": "Shopping, tips, incidentals" },
-    "total": "₹1,00,000"
-  }
+  "destination": "Japan", "cities": "Tokyo · Kyoto", "budget": "₹1,00,000", "travel_style": "Cultural",
+  "days": [{ "day": 1, "title": "Arrival in Tokyo", "theme": "First impressions",
+             "activities": [{ "time": "14:00", "icon": "plane-landing", "name": "Arrive at Narita", "note": "… · ₹0 · tip" }] }],
+  "cost_breakdown": { "flights": {"amount": "₹45,000", "note": "…"}, "accommodation": {...}, "food": {...},
+                      "activities": {...}, "local_transport": {...}, "misc": {...}, "total": "₹1,00,000" }
 }
 ```
 
-### How AI Chat Works
+### Chat (`POST /api/chat`)
+System prompt ("You are Voya AI… 2–5 sentences"), plus the last 10 turns, plus the new message; `max_tokens: 400`, 30s timeout, 15 per minute per user. Errors are shown inside the chat panel.
 
-- System prompt tells the AI: "You are Voya AI, a travel companion. Keep replies 2–5 sentences."
-- Last 10 conversation turns are sent as history (so the AI remembers context)
-- Uses `temperature: 0.8` (slightly creative) and `max_tokens: 400` (short replies)
-- Model: DeepSeek Chat v3 (via OpenRouter)
+### Model choice
+`OPENROUTER_MODEL` (default `deepseek/deepseek-chat-v3-0324`). Switching models is an env-var change in Vercel; no code change needed.
 
 ---
 
 ## 9. Frontend — Every Page & Component
 
-### Page 1 — Landing Page (`Landing Page.html`)
-- Standalone HTML file (no React)
-- Explains what Voya does
-- Has a CTA button that links to the Login page
-- Animated logo video (`voya_logo_animate.mp4`)
+| Page | File | What it does |
+|---|---|---|
+| Landing | `landing/index.html` | Static HTML. Hero, features, how it works, destinations, pricing (free), CTAs to `/login` |
+| Login / Signup | `auth/index.html` | Password login, email code, Google. Inline validation. Redirects to `next` |
+| Dashboard | `app/index.html` + `dashboard/Dashboard.jsx` | Greeting with real name, trip stats, AI search, next upcoming trip (or "Plan a trip"), AI chat, recent searches, destination ideas |
+| Plan Trip | `app/plan.html` + `plantrip/*.jsx` | `PlanForm` → `LoadingView` → `ItineraryView`. Save to wishlist, Share (copy text), Modify, Book it all |
+| My Trips | `plantrip/MyTripsView.jsx` | Filter tabs, status dropdown, delete, open itinerary |
+| Explore | `explore/ExploreApp.jsx` | Destination grid (name, flag, real landmarks). Click → planner prefilled |
+| Profile | `profile/ProfileApp.jsx` | Edit profile, photo upload, stats/achievements/stamps/activity computed from real trips, sign out |
 
----
+### Shared pieces (`dashboard/components.jsx`)
+`C` (colour tokens), `Icon`, `VBtn`, `VCard`, `VChip`, `VAvatar` (initials), `VSectionHead`, **`VSidebar`** (one sidebar for every page, with logout), `VNotice` (inline errors), `useToast`, `fmtDate`.
 
-### Page 2 — Login / Signup (`Login.html`)
-- Standalone HTML file
-- **Smart flow:** user enters email → backend checks if account exists
-  - If yes → shows password field (login mode)
-  - If no → shows name + password fields (signup mode)
-- Also has: OTP email button, Google OAuth button
-- On success → saves `voya_user_email` and `voya_user_name` to localStorage → redirects to `/app`
-
----
-
-### Page 3 — Dashboard (`Voya Dashboard.html` + `Dashboard.jsx`)
-
-The dashboard is a single-page app. The sidebar controls which "page" you see:
-
-**Sections rendered on the home tab:**
-| Component | Description |
-|---|---|
-| `HeroSection` | Greeting ("Good morning, Afreen") + animated route SVG |
-| `AISearch` | Search bar with rotating placeholder suggestions |
-| `QuickActions` | 4 shortcut buttons (Plan Trip, My Trips, Explore, Chat) |
-| `UpcomingTrips` | *Currently hardcoded* — will show real trips in Phase 2 |
-| `AIAssistant` | Chat panel connected to `/chat` backend |
-| `RecentSearches` | *Currently hardcoded* — will be persisted in Phase 2 |
-| `PopularDestinations` | Static destination cards with artwork |
-| `TravelInspiration` | Static inspiration cards |
-| `SavedPlaces` | *Currently hardcoded* — will be a real bookmarks feature in Phase 3 |
-
-**Navigation tabs:** Home, Plan Trip, My Trips, Explore, Profile
-
----
-
-### Page 4 — Plan Trip (`plantrip/*.jsx`)
-
-**Files involved:**
-
-`App.jsx` — Coordinator. Manages which view to show:
-- `PlanForm` → user fills in the form
-- `LoadingView` → shown while AI generates (animated progress bar)
-- `ItineraryView` → shows the generated itinerary
-
-`PlanForm.jsx` — The trip planning form with:
-- Destination autocomplete (100+ destinations with flags and hints)
-- Departure city autocomplete (30+ airports with IATA codes)
-- Date pickers (start + end date)
-- Budget pills (₹30k, ₹50k, ₹75k, ₹1L, ₹1.5L+)
-- Traveler count stepper
-- Travel style multi-select (Adventure, Cultural, Relaxation, Food, Romantic, Family)
-
-`ItineraryView.jsx` — Shows the AI result:
-- Day-by-day timeline with icons, times, activity names, notes
-- Cost breakdown table
-- "Save to wishlist" button → calls `/save-trip` with `status: "wishlist"`
-- "Book All" button → calls `/save-trip` with `status: "upcoming"`
-- Booking modal with fake flight/hotel/activity sections
-
-`MyTripsView.jsx` — Shows all saved trips:
-- Filter tabs: All, Upcoming, Saved, Completed
-- Stats strip (count per status)
-- Trip cards with thumbnail, destination, dates, budget, travelers, travel style
-- Status badge (clickable dropdown to change status)
-- Trash icon to delete a trip
-- Clicking a card opens `ItineraryView` with that saved trip's itinerary
-
----
-
-### Page 5 — Profile (`profile/ProfileApp.jsx`)
-- Loads user data from `/profile?email=<email>` on mount
-- Shows: avatar, name, email, phone, home airport, preferred budget, travel style, bio
-- Edit mode: form to update any field → calls `POST /profile`
-- On save, updates `voya_user_name` in localStorage
-
----
-
-### Page 6 — Explore (`explore/ExploreApp.jsx`)
-- Shows travel packages (currently hardcoded static data)
-- Filter by category: All, Beach, Cultural, Adventure, City
-- Each package card: destination, duration, price, highlights, what's included, rating
-
----
-
-### Shared Components (`dashboard/components.jsx`)
-| Component | Purpose |
-|---|---|
-| `VCard` | White card with shadow and border radius |
-| `VSectionHead` | Section heading with eyebrow text + action link |
-| `Icon` | Wrapper around Lucide icons |
-| `C` | Color constants object (navy, ocean, cream, amber, etc.) |
+### Mobile
+`shared/app.css` only applies below 860px: the sidebar becomes an icon top bar and grids stack (`m-stack`, `m-wrap`, `m-pad` class names). Desktop is unchanged.
 
 ---
 
 ## 10. Data Flow — How Everything Connects
 
-### Complete Trip Planning Flow
-
 ```
-1. User fills PlanForm
-   ↓
-2. App.jsx calls handleGenerate()
-   ↓
-3. POST /generate-trip
-   ├── Fetches user profile from Supabase (personalisation)
-   └── Calls OpenRouter API (DeepSeek)
-       ↓
-4. AI returns JSON itinerary
-   ↓
-5. ItineraryView renders the itinerary
-   ↓
-6a. User clicks "Save" → POST /save-trip (status: "wishlist")
-6b. User clicks "Book All" → POST /save-trip (status: "upcoming")
-   ↓
-7. Trip stored in Supabase trips table with user_email
-   ↓
-8. My Trips page → GET /get-trips?user_email=... → shows the trip
-```
-
-### Authentication Flow (Email/Password)
-
-```
-Login page:
-1. User types email → POST /check-email
-2. If exists → show password field
-3. User types password → POST /login-password
-4. Backend checks hash → returns { success: true, user }
-5. Frontend saves email + name to localStorage
-6. Redirect to /app
+PlanForm ─► POST /api/generate-trip (Bearer token)
+              ├─ insert into searches
+              ├─ read profile (personalisation)
+              └─ OpenRouter → validate JSON (retry once)
+          ◄─ itinerary ─► ItineraryView
+Save to wishlist ─► POST /api/save-trip (status=wishlist) → trip id
+Book it all      ─► PATCH /api/update-trip-status/<id> (upcoming)   [already saved]
+                 └► POST /api/save-trip (status=upcoming)          [not saved yet]
+My Trips / Dashboard / Profile ─► GET /api/get-trips
 ```
 
 ---
 
 ## 11. LocalStorage — Client-Side State
 
-The app uses `localStorage` to persist the logged-in user across page loads (no server-side sessions).
-
-| Key | Value | Set when |
+| Key | Value | Trusted by the server? |
 |---|---|---|
-| `voya_user_email` | e.g. `anzafreen@gmail.com` | After successful login |
-| `voya_user_name` | e.g. `Afreen` | After login / profile save |
-| `voya_access_token` | Supabase OAuth token | After Google OAuth callback |
-
-Every API call that needs to be scoped to a user reads `localStorage.getItem('voya_user_email')` and sends it in the request.
+| `voya_token` | Signed session JWT (7 days) | Yes, but only after the signature is verified |
+| `voya_user_name` | Display name for the UI | No (display only) |
+| `voya_next` (sessionStorage) | Where to return after Google login | No (only `/app…` paths are accepted) |
 
 ---
 
 ## 12. Security Practices
 
-### What's in place
-- **Passwords are hashed** — never stored in plain text. Uses `werkzeug.security` (bcrypt under the hood)
-- **User-scoped trip operations** — `save-trip`, `get-trips`, `delete-trip`, `update-trip-status` all require `user_email` AND verify it matches the record before modifying (prevents one user deleting another's trips)
-- **`.env` for secrets** — API keys are never hardcoded; loaded from `.env` which is in `.gitignore`
-- **`.env.save` removed** — credentials that were accidentally committed were purged from git history using `git filter-branch`
-- **CORS configured** — Flask-CORS allows the frontend to call the backend
+- **Server-side identity**: the user's email comes only from the verified token, so trip ids from another user return `404`.
+- **Passwords**: hashed with werkzeug (scrypt), minimum 8 characters. Same error for unknown email or wrong password.
+- **Database**: RLS on with no policies, plus no grants for `anon`/`authenticated`. The publishable key can't read `users.password_hash`. The service-role key lives only in server env vars.
+- **Secrets**: `.env` is git-ignored. `.env.example` lists the variables with placeholders.
+- **Input validation**: lengths, formats, statuses and dates are checked; upload type and size are checked.
+- **Rate limits**: auth 10/min per IP, generate 4/min, chat 15/min per user. These are in-memory per serverless instance (best-effort; a shared store like Redis would make them global).
+- **Headers**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store` on the API.
+- **Safe redirects**: `next` is restricted to `/app…`.
 
-### What's not yet production-grade
-- **No JWT tokens** — user email in localStorage can be tampered with by the user (though backend only returns that user's own data)
-- **No HTTPS** — running on localhost; needs SSL for production
-- **No rate limiting** — AI endpoints can be called unlimited times
+**Known limitations**: the session token can't be revoked before it expires (7 days). There's no email verification for password signups.
 
 ---
 
-## 13. What's Done vs What's Coming
+## 13. Deployment
 
-### Phase 1 — Core Fixes (DONE)
-- [x] User-scoped trips — each user only sees their own trips
-- [x] Delete trip — backend + trash icon UI in My Trips
-- [x] Update trip status — clickable status badge dropdown
-
-### Phase 2 — Complete the Dashboard
-- [ ] **Upcoming Trips (dynamic)** — pull real "upcoming" trip from Supabase instead of hardcoded Thailand
-- [ ] **Recent Searches (saved)** — persist search history per user in Supabase
-
-### Phase 3 — New Features
-- [ ] **Saved Places / Bookmarks** — let users bookmark destinations
-- [ ] **Profile photo upload** — Supabase Storage + avatar display
-- [ ] **Explore packages from backend** — move hardcoded packages to Supabase table
-
-### Phase 4 — Polish & Deploy
-- [ ] **Notifications** — in-app notification panel
-- [ ] **Replace localhost URLs** — config variable for API base URL
-- [ ] **Deploy backend** — Railway / Render / Fly.io
-- [ ] **Deploy frontend** — Netlify / Vercel
+- `pyproject.toml` declares the dependencies and `[tool.vercel] entrypoint = "backend.app:app"`.
+- `vercel.json` sets `"framework": "flask"` and `maxDuration: 120` for `backend/app.py`.
+- Every file is bundled into the function, so Flask can serve `frontend/` directly.
+- **Env vars** (Production + Preview): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `APP_SECRET_KEY`, plus `APP_BASE_URL` (Production only).
+- **Supabase Auth → URL configuration**: Site URL = production URL, and Redirect URLs include `<prod>/auth/callback`.
 
 ---
 
 ## 14. Interview Q&A
 
-### General Project Questions
-
 **Q: What is Voya and what problem does it solve?**
-A: Voya is an AI-powered travel planning app that solves the problem of trip planning being scattered across multiple websites. Instead of spending hours on Google Flights, TripAdvisor, booking.com and travel blogs, Voya generates a complete personalised day-by-day itinerary with real place names, timings, estimated costs and a full budget breakdown — in about 30 seconds.
+A: An AI trip planner. You give it a destination, dates, budget and style, and it returns a day-by-day itinerary with real places and an estimated budget breakdown, in about 30 seconds instead of hours of research across many sites.
 
-**Q: How long did this take to build?**
-A: The project was built incrementally — the design was created in Figma first, exported as HTML handoff files, and then the backend was built in Python/Flask with Supabase as the database and OpenRouter for AI.
+**Q: Walk me through the stack.**
+A: Flask on Vercel serves both the frontend and a JSON API. Supabase provides Postgres, auth (email codes, Google) and file storage. OpenRouter routes AI calls to DeepSeek. The UI is React from a Figma export, loaded from a CDN with in-browser Babel, so there's no build step.
 
-**Q: Walk me through the tech stack and why you chose each tool.**
-A: Flask for the backend because Python makes it easy to work with AI APIs and data processing. Supabase because it gives you a production-grade PostgreSQL database with built-in OAuth (Google login) out of the box — no need to build auth from scratch. OpenRouter because it lets you swap AI models without changing code. React via CDN because the frontend came from a Figma handoff and didn't need a full build pipeline.
+**Q: How does authentication work?**
+A: Every login method (password, email code, Google) ends with the server issuing its own HS256 JWT with a 7-day expiry. The browser sends it as a Bearer token. A `@require_auth` decorator verifies it and puts the email in `g.email`. Endpoints never trust an email from the request.
 
----
+**Q: The first version sent `user_email` from localStorage. What was wrong with that?**
+A: Anyone could edit localStorage or the query string and read or delete another user's trips. Now identity comes only from a signed token, and every trip query filters by `id` **and** the token's email, so someone else's trip id returns 404. I wrote a test where user B tries to modify user A's trip.
 
-### Backend / Python Questions
+**Q: Why do you need RLS if only the backend talks to the database?**
+A: Defence in depth. The publishable key is public by design, and it was once committed to the repo. With RLS on, no policies and no grants for `anon`, that key can't read anything. The backend uses the service-role key, which stays server-side.
 
-**Q: How does password hashing work in Voya?**
-A: When a user signs up, their password is hashed using `generate_password_hash` from werkzeug, which uses bcrypt internally. The hash is stored in Supabase. On login, `check_password_hash(stored_hash, input_password)` is called — it never decrypts the hash, it re-hashes the input and compares. This means even if the database is leaked, passwords can't be recovered.
+**Q: How do you make the AI return valid JSON?**
+A: JSON mode (`response_format`), a strict prompt with the exact schema, stripping stray code fences, then server-side schema validation (days, activities, cost total). If the result is invalid it retries once within a fixed time budget, and the UI shows a friendly error if both attempts fail.
 
-**Q: How do you prevent one user from deleting another user's trip?**
-A: Every mutation endpoint (delete, update status, save) requires the `user_email` in the request AND the Supabase query includes `.eq("user_email", email)` as a condition. So even if someone sends a request with a different trip ID, it will only delete if that trip also belongs to their email.
+**Q: How do you handle long AI calls on serverless?**
+A: Per-attempt timeouts (55s) inside a total budget (100s), below the function's `maxDuration` (120s). The client shows an animated loading view that eases toward 95% instead of a fake fixed timer.
 
-**Q: How does CORS work and why is it needed?**
-A: CORS (Cross-Origin Resource Sharing) is a browser security rule that blocks JavaScript from making requests to a different domain/port than the page it's on. In development, the frontend and backend both run on localhost:5000, so it's fine. But when deployed, the frontend might be on `voya.netlify.app` and the backend on `voya-api.railway.app` — different domains. `flask-cors` adds the right HTTP headers so the browser allows these cross-origin requests.
+**Q: Why implicit OAuth flow instead of PKCE?**
+A: PKCE stores a code verifier between the redirect and the callback. On serverless, those can hit different instances. With the implicit flow, the callback page sends the access token to my API, which verifies it with Supabase before issuing a session.
 
-**Q: What happens if the AI returns malformed JSON?**
-A: The `generate-trip` endpoint catches `json.JSONDecodeError` separately and returns a user-friendly error message. There's also pre-processing to strip any accidental markdown code fences (` ```json `) before parsing.
+**Q: What would you improve next?**
+A: Token revocation (a server-side session table), email verification for password signups, a shared rate-limit store, real booking via partner APIs, and moving the frontend to a build step (Vite) for faster loads.
 
----
-
-### Database Questions
-
-**Q: Why use email as a foreign key instead of user ID?**
-A: Supabase has two separate systems — the Auth system (which manages Google OAuth and OTP logins) and the custom `users` table we created for email/password logins. Their user IDs are in different systems. Using email as the common link is simpler and works reliably across both auth methods.
-
-**Q: What is Supabase?**
-A: Supabase is an open-source Firebase alternative. It provides a PostgreSQL database, auto-generated REST API, authentication (OAuth, OTP, magic links), storage (for files/images), and a web dashboard. You can use the Python SDK (`supabase-py`) to query it directly from the backend.
-
----
-
-### Frontend Questions
-
-**Q: Why use React via CDN instead of Create React App or Vite?**
-A: The frontend originated from Figma handoff exports — already-structured HTML files. Adding a build tool would mean restructuring everything. Using Babel Standalone + React CDN means the JSX files can be served directly by Flask and transpiled in the browser with zero build step. The trade-off is slightly slower initial page load (browser downloads and compiles Babel).
-
-**Q: How does the AI itinerary generation look from the user's perspective?**
-A: The user fills in a form (destination, dates, budget, travel style, departure city), clicks "Generate itinerary". A loading screen appears with an animated progress bar and step descriptions ("Researching your destination", "Building your day plan", etc.). After 15–30 seconds, the full itinerary slides in — showing each day as a timeline with activity cards, icons, times, and notes. At the bottom is a cost breakdown table.
-
-**Q: How do you handle the trip status system?**
-A: Each trip has one of four statuses: `planning` (saved but not confirmed), `upcoming` (booked/confirmed), `completed` (trip is over), `wishlist` (saved to look at later). In My Trips, there are filter tabs for each. The status badge on each card is clickable — it opens a dropdown where the user can change the status. This calls `PATCH /update-trip-status/<id>` and updates the card in the UI instantly without a page reload.
-
----
-
-### AI / API Questions
-
-**Q: What is OpenRouter and why not use OpenAI directly?**
-A: OpenRouter is an API gateway that gives you access to dozens of AI models (OpenAI, Anthropic, DeepSeek, Mistral, etc.) through one unified API. The advantage is flexibility — if DeepSeek becomes too expensive or slow, you can switch to a different model by changing one line (`OPENROUTER_MODEL`). It's also often cheaper than going directly to providers.
-
-**Q: How do you make the AI return valid JSON every time?**
-A: Three layers of enforcement:
-1. The prompt says "Return ONLY the raw JSON object — no markdown fences, no explanation text whatsoever"
-2. The API call includes `"response_format": {"type": "json_object"}` which forces the model into JSON mode
-3. The backend strips any accidental markdown fences before parsing with `json.loads()`
-
-**Q: How is the AI personalised for each user?**
-A: When generating a trip, the backend fetches the user's profile from Supabase. If they have a `home_airport` set (e.g. "BLR — Bangalore"), the AI prompt includes a personalisation section: flights must depart from Bangalore. If they have a `preferred_budget` ("luxury"), hotels are matched to 5-star. If they have a `travel_style` ("adventure"), the prompt prioritises adventure activities. Profile values override form values.
-
----
-
-### Git / Version Control Questions
-
-**Q: You mentioned removing a secret from git history — how did you do that?**
-A: The OpenRouter API key was accidentally committed in `backend/.env`. To remove it, we used `git filter-branch --force --index-filter "git rm --cached --ignore-unmatch backend/.env" -- --all`. This rewrites every commit in history to exclude that file. Then we force-pushed with `git push --force`. The key was also rotated as a precaution since it was exposed before the rewrite.
-
-**Q: What's in your `.gitignore` and why?**
-A: `.env` and `.env.save` (secret keys, never committed), `__pycache__` and `*.pyc` (Python compiled files, generated automatically), `node_modules/` (npm packages, downloaded on install), `.env.local` (local overrides).
-
----
-
-*This guide covers the complete Voya codebase as of June 2026, including Phases 1 (completed), and 2–4 (roadmap).*
+**Q: Why use email as the foreign key instead of user id?**
+A: Supabase Auth users and the custom `users` table are separate systems, and email is the identifier shared across all three login methods. Emails are normalised to lower case and unique.
