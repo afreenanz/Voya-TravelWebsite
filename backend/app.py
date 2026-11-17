@@ -151,7 +151,10 @@ def _new_client():
     return create_client(
         SUPABASE_URL,
         SUPABASE_KEY,
-        options=ClientOptions(persist_session=False, auto_refresh_token=False),
+        # Implicit flow: email links and Google return an access token in the URL
+        # hash to /auth/callback. PKCE would need the code verifier to survive
+        # between requests, which serverless instances don't guarantee.
+        options=ClientOptions(persist_session=False, auto_refresh_token=False, flow_type="implicit"),
     )
 
 
@@ -447,7 +450,13 @@ def api_send_otp():
     email = email_field(data)
     rate_limit("auth", _client_ip())
     try:
-        auth_client().auth.sign_in_with_otp({"email": email})
+        auth_client().auth.sign_in_with_otp({
+            "email": email,
+            # The email contains a sign-in link (and a 6-digit code if the
+            # Supabase template includes {{ .Token }}). The link lands on
+            # /auth/callback, which exchanges it for a Voya session.
+            "options": {"email_redirect_to": _base_url() + "/auth/callback"},
+        })
     except Exception as e:
         log.warning("send-otp failed: %s", e)
         raise ApiError("We couldn't send a code right now. Please wait a minute and try again.", 502)
@@ -481,11 +490,11 @@ def api_auth_oauth():
         res = auth_client().auth.get_user(access_token)
     except Exception as e:
         log.info("oauth token rejected: %s", e)
-        raise ApiError("Google sign-in failed. Please try again.", 401)
+        raise ApiError("Sign-in failed. Please try again.", 401)
     sb_user = res.user if res else None
     email = (sb_user.email or "").lower() if sb_user else ""
     if not email:
-        raise ApiError("Google sign-in failed. Please try again.", 401)
+        raise ApiError("Sign-in failed. Please try again.", 401)
     meta = sb_user.user_metadata or {}
     name = (meta.get("full_name") or meta.get("name") or "").strip()[:80]
     avatar = (meta.get("avatar_url") or meta.get("picture") or "").strip()[:500]

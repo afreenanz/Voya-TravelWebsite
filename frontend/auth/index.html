@@ -496,6 +496,7 @@ function AuthForm({ mode, setMode }) {
     const r = await Voya.api('/api/check-email', { method: 'POST', body: { email: email.trim() } });
     if (!r.ok) { setLoading(false); setPwdError(r.error); return; }
     if (!r.data.exists) { setLoading(false); setStep('no-account'); return; }
+    Voya.rememberNext();
     const sendError = await doSendOTP();
     setLoading(false);
     if (sendError) { setPwdError(sendError); return; }
@@ -603,26 +604,20 @@ function AuthForm({ mode, setMode }) {
             Check your email
           </h1>
           <p style={{ fontFamily:'var(--font-body)', fontSize:15, color:'var(--fg-2)', margin:0, lineHeight:1.55 }}>
-            We've sent a 6-digit verification code to{' '}
-            <span style={{ color:'var(--fg-1)', fontWeight:600 }}>{email}</span>
+            We've sent a sign-in link to{' '}
+            <span style={{ color:'var(--fg-1)', fontWeight:600 }}>{email}</span>.
+            Open it on this device to finish signing in.
           </p>
         </div>
 
-        <form onSubmit={handleVerifySubmit}>
-          <OTPInput otp={otp} setOtp={setOtp} error={otpError} shake={otpShake} disabled={loading}/>
-
-          {otpError && (
-            <p style={{ fontFamily:'var(--font-body)', fontSize:13, color:'#ef4444', textAlign:'center', margin:'14px 0 0', lineHeight:1.45 }}>
-              {otpError}
-            </p>
-          )}
-
-          <div style={{ marginTop:24 }}>
-            <CTAButton type="submit" disabled={!allFilled} loading={loading}>
-              Verify Code &nbsp;{Icon.arrow}
-            </CTAButton>
-          </div>
-        </form>
+        <div style={{ background:'var(--voya-cream-100)', borderRadius:'var(--radius-md)', padding:'14px 16px', fontFamily:'var(--font-body)', fontSize:13.5, color:'var(--fg-2)', lineHeight:1.55 }}>
+          The link expires shortly and works once. Can't find it? Check your spam folder.
+        </div>
+        {otpError && (
+          <p style={{ fontFamily:'var(--font-body)', fontSize:13, color:'#ef4444', textAlign:'center', margin:'14px 0 0', lineHeight:1.45 }}>
+            {otpError}
+          </p>
+        )}
 
         <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, marginTop:22 }}>
           <button onClick={handleResend} disabled={resend > 0} style={{
@@ -632,7 +627,7 @@ function AuthForm({ mode, setMode }) {
             cursor: resend > 0 ? 'default' : 'pointer',
             transition:'color 140ms',
           }}>
-            {resend > 0 ? `Resend in ${resend}s` : 'Resend Code'}
+            {resend > 0 ? `Resend in ${resend}s` : 'Resend link'}
           </button>
           <span style={{ color:'var(--border-default)', fontSize:18, lineHeight:1 }}>·</span>
           <button onClick={() => { setStep('entry'); setOtp(['','','','','','']); setOtpError(''); }} style={{
@@ -722,7 +717,7 @@ function AuthForm({ mode, setMode }) {
         </h1>
         <p style={{ fontFamily:'var(--font-body)', fontSize:15, color:'var(--fg-2)', margin:0 }}>
           {isLogin
-            ? (useOtp ? 'Enter your email and we\'ll send you a 6-digit code.' : 'Sign in with your email and password.')
+            ? (useOtp ? 'Enter your email and we\'ll send you a sign-in link.' : 'Sign in with your email and password.')
             : 'Start planning your next adventure.'}
         </p>
       </div>
@@ -757,7 +752,7 @@ function AuthForm({ mode, setMode }) {
         <p style={{ fontFamily:'var(--font-body)', fontSize:13, color:'var(--fg-muted)', textAlign:'center', marginTop:14 }}>
           <button onClick={() => { setUseOtp(u => !u); setPwdError(''); setPassword(''); }}
             style={{ background:'none', border:'none', padding:0, fontFamily:'var(--font-body)', fontSize:13, fontWeight:600, color:'var(--fg-link)', cursor:'pointer' }}>
-            {useOtp ? 'Sign in with password instead' : 'Sign in with an email code instead'}
+            {useOtp ? 'Sign in with password instead' : 'Email me a sign-in link instead'}
           </button>
         </p>
       )}
