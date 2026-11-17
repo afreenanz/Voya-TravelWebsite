@@ -105,6 +105,14 @@ end $$;
 alter table public.users    enable row level security;
 alter table public.trips    enable row level security;
 alter table public.searches enable row level security;
+-- ── Table privileges ───────────────────────────────────────────────────────
+-- Only the backend's service role may touch these tables. The public roles
+-- (anon / authenticated = publishable key) get nothing, on top of RLS.
+grant usage on schema public to service_role;
+grant select, insert, update, delete on public.users, public.trips, public.searches to service_role;
+grant usage, select on all sequences in schema public to service_role;
+revoke all on public.users, public.trips, public.searches from anon, authenticated;
+
 -- Legacy table from the removed "saved places" feature, if present.
 do $$
 begin

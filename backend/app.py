@@ -39,7 +39,7 @@ SHARED_DIR   = os.path.join(FRONTEND_DIR, "shared")
 
 load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
-SUPABASE_URL      = (os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
+SUPABASE_URL      = re.sub(r"/rest/v1/?$", "", (os.getenv("SUPABASE_URL") or "").strip().rstrip("/"))
 SUPABASE_KEY      = (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or "").strip()
 OPENROUTER_KEY    = (os.getenv("OPENROUTER_API_KEY") or "").strip()
 OPENROUTER_MODEL  = (os.getenv("OPENROUTER_MODEL") or "deepseek/deepseek-chat-v3-0324").strip()

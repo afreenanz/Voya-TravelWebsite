@@ -43,7 +43,7 @@ function buildTripFromApiResponse(apiData, formInputData) {
     endDate:       formInputData.endDate,
     status:        'planning',
     travelers:     formInputData.travelers,
-    travelStyle:   formInputData.styleLabels?.join(' & ') || apiData.travel_style || '',
+    travelStyle:   formInputData.styleLabels?.join(', ') || apiData.travel_style || '',
     gradient:      meta.gradient || 'linear-gradient(160deg,#6FAAEA 0%,#378ADD 55%,#07304F 100%)',
     itinerary,
     costBreakdown: apiData.cost_breakdown || null,
