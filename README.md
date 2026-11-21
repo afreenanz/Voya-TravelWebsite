@@ -50,12 +50,31 @@ Browser ──► Flask on Vercel ──┬──► Supabase (Postgres · Auth 
 
 More detail: [`VOYA_STUDY_GUIDE.md`](VOYA_STUDY_GUIDE.md).
 
+### AI travel agent (LangGraph)
+
+```
+load_context → understand → decide ─┬─ (clarify / answer) ─────────┐
+ (Supabase)   (LLM: intent   (code   └─ execute_tools → respond ───┴→ persist
+               + tool plan)   guardrails)  places · weather ·   (templates for plans,   (messages, draft,
+                                           itinerary · budget · LLM only for Q&A)      tool metadata)
+                                           save
+```
+
+- **Plan-and-execute, single agent.** One LLM call returns the intent, trip details and the tools to run; code then enforces the rules (no save unless the traveller asked in that message, no edits without a draft, dates in range, ask instead of guessing). A full trip plan costs 2 LLM calls, which matters on OpenRouter's free tier (50 requests/day).
+- **Grounded tools.** Places and place verification come from Geoapify (OpenStreetMap), weather from Open-Meteo (never estimated outside the 16-day forecast window), and budget totals from Python `Decimal` maths. The LLM only drafts the plan and per-category cost estimates.
+- **Memory in the database.** Preferences, conversation history and the draft itinerary live in Supabase and are reloaded on every turn, because serverless instances share nothing between requests.
+- **Human in the loop.** New or changed plans come back with a `pending_action`. Saving happens only via `POST /api/agent/confirm` or an explicit "save it", and success is only reported after the row is read back.
+- **Endpoints.** `POST /api/agent/chat` (JSON), `POST /api/agent/stream` (Server-Sent Events: `conversation` → `step`… → `result`), `POST /api/agent/confirm`.
+- **Evaluation.** `python eval/run_agent_eval.py [--full 3]` scores intent and tool-selection accuracy, parameter extraction, clarification behaviour and latency on 20 realistic requests with the real LLM.
+
 ## Project layout
 
 ```
 backend/app.py          Flask app: page routes + /api
 backend/services/       memory.py (preferences + conversation history), ai.py (OpenRouter client), trips.py (save trip)
+backend/agent/          LangGraph travel agent: state, prompts, nodes (guardrails), graph, service
 backend/tools/          Agent tools: places, weather, budget, itinerary (generate/modify), geo verification
+eval/                   Agent evaluation set + runner (real LLM)
 tests/                  pytest suite (unit + integration against Supabase)
 frontend/landing/       Landing page          → /
 frontend/auth/          Login/signup + OAuth  → /login, /auth/callback

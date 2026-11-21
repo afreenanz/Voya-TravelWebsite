@@ -10,6 +10,7 @@ import json
 import logging
 import mimetypes
 import os
+import queue
 import re
 import threading
 import time
@@ -20,7 +21,7 @@ from urllib.parse import urlencode
 
 import jwt
 from dotenv import load_dotenv
-from flask import Flask, g, jsonify, redirect, request, send_from_directory
+from flask import Flask, Response, g, jsonify, redirect, request, send_from_directory
 from supabase import ClientOptions, create_client
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -29,7 +30,9 @@ if __package__ in (None, ""):  # `python backend/app.py`: make `backend.*` impor
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.services import memory  # noqa: E402
+from backend.services import trips as trips_service  # noqa: E402
 from backend.services.trips import DEFAULT_GRADIENT  # noqa: E402
+from backend.agent import service as agent_service  # noqa: E402
 from backend.tools.itinerary import ICONS as ALLOWED_ICONS  # noqa: E402
 from backend.services.ai import AIError, OPENROUTER_CHAT_MODEL, call_openrouter, parse_json, user_message  # noqa: E402
 
@@ -222,7 +225,7 @@ def require_auth(fn):
 # own memory and instances are recycled, so this is a best-effort brake against
 # accidental hammering, not a hard global quota. A global limit would need a
 # shared store (e.g. a Supabase table or Redis).
-_RATE = {"generate": (4, 60), "chat": (15, 60), "auth": (10, 60)}
+_RATE = {"generate": (4, 60), "agent": (6, 60), "chat": (15, 60), "auth": (10, 60)}
 _rate_hits = defaultdict(deque)
 _rate_lock = threading.Lock()
 
@@ -777,6 +780,87 @@ def api_delete_conversation(conversation_id):
     if not memory.delete_conversation(db(), current_user_id(), conversation_id):
         raise ApiError("Conversation not found.", 404)
     return ok()
+
+
+# ── AI travel agent (Voya 2.0) ──────────────────────────────────────────────
+def _agent_input():
+    data = body()
+    message = text(data, "message", required=True, max_len=agent_service.MAX_MESSAGE_LEN, label="Message")
+    conversation_id = text(data, "conversation_id", max_len=64) or None
+    rate_limit("agent", g.email)
+    return message, conversation_id
+
+
+@app.post("/api/agent/chat")
+@require_auth
+def api_agent_chat():
+    """One agent turn, returned as a single JSON response."""
+    message, conversation_id = _agent_input()
+    try:
+        result = agent_service.run_turn(db(), current_user_id(), g.email, message, conversation_id)
+    except agent_service.ConversationNotFound:
+        raise ApiError("Conversation not found.", 404)
+    except agent_service.AgentInputError as e:
+        raise ApiError(str(e), 400)
+    return ok(**result)
+
+
+@app.post("/api/agent/stream")
+@require_auth
+def api_agent_stream():
+    """Same as /api/agent/chat, streamed as Server-Sent Events:
+    {type: conversation|step|result|error, …}. Steps arrive as each tool runs."""
+    message, conversation_id = _agent_input()
+    user_id, email = current_user_id(), g.email
+    if conversation_id and not memory.get_conversation(db(), user_id, conversation_id):
+        raise ApiError("Conversation not found.", 404)
+    events = queue.Queue()
+
+    def worker():
+        try:
+            result = agent_service.run_turn(db(), user_id, email, message, conversation_id, emit=events.put)
+            events.put({"type": "result", **result})
+        except agent_service.AgentInputError as e:
+            events.put({"type": "error", "error": str(e)})
+        except Exception:
+            log.exception("agent stream failed")
+            events.put({"type": "error", "error": "Something went wrong on our side. Please try again."})
+        finally:
+            events.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def generate():
+        while True:
+            try:
+                ev = events.get(timeout=10)
+            except queue.Empty:
+                yield ": keep-alive\n\n"       # keeps proxies from closing a quiet connection
+                continue
+            if ev is None:
+                return
+            yield f"data: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
+
+    return Response(generate(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
+@app.post("/api/agent/confirm")
+@require_auth
+def api_agent_confirm():
+    """Human-in-the-loop: the traveller confirmed saving the conversation's draft trip."""
+    data = body()
+    conversation_id = text(data, "conversation_id", required=True, max_len=64, label="Conversation")
+    if text(data, "action", max_len=40) != "save_trip":
+        raise ApiError("Unknown action.", 400)
+    rate_limit("chat", g.email)
+    try:
+        result = agent_service.confirm_save(db(), current_user_id(), g.email, conversation_id)
+    except agent_service.ConversationNotFound:
+        raise ApiError("Conversation not found.", 404)
+    except (agent_service.AgentInputError, trips_service.TripError) as e:
+        raise ApiError(str(e), 400)
+    return ok(**result)
 
 
 # ── Keep-alive (Vercel Cron) ────────────────────────────────────────────────
