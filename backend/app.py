@@ -723,6 +723,9 @@ def call_openrouter(messages, *, max_tokens, timeout, json_mode=False, temperatu
     }
     if OPENROUTER_FALLBACK_MODELS:
         payload["models"] = [OPENROUTER_MODEL, *OPENROUTER_FALLBACK_MODELS]
+    # Free models are often "reasoning" models: hidden thinking can eat the whole
+    # token budget (empty answer) and doubles latency. Voya doesn't need it.
+    payload["reasoning"] = {"enabled": False}
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
     try:
@@ -887,13 +890,18 @@ def _clean_str(value, max_len=300):
     return value.strip()[:max_len] if isinstance(value, str) else ""
 
 
-def validate_itinerary(data, destination, budget, travel_style):
-    """Check the AI result has the shape the UI needs; normalise it. Raises ValueError."""
+def validate_itinerary(data, destination, budget, travel_style, num_days=None):
+    """Check the AI result has the shape the UI needs; normalise it. Raises ValueError.
+    With num_days, extra days are trimmed and missing days are an error (so we retry)."""
     if not isinstance(data, dict):
         raise ValueError("result is not an object")
     days_in = data.get("days")
     if not isinstance(days_in, list) or not days_in:
         raise ValueError("days missing or empty")
+    if num_days:
+        if len(days_in) < num_days:
+            raise ValueError(f"only {len(days_in)} of {num_days} days")
+        days_in = days_in[:num_days]
     days = []
     for i, d in enumerate(days_in, start=1):
         if not isinstance(d, dict):
@@ -987,7 +995,7 @@ def api_generate_trip():
 
     deadline = time.monotonic() + AI_TOTAL_BUDGET_S
     last_problem = None
-    for attempt in (1, 2):  # one retry, only for invalid/incomplete JSON
+    for attempt in (1, 2):  # one retry, for empty/invalid/incomplete answers
         remaining = deadline - time.monotonic()
         if remaining < 15:
             break
@@ -998,9 +1006,12 @@ def api_generate_trip():
             log.warning("generate-trip attempt %d failed: %s", attempt, e)
             if str(e) == "timeout":
                 raise ApiError("Voya AI took too long to respond. Please try again.", 504)
+            if str(e) in ("empty response", "malformed response"):
+                last_problem = e
+                continue
             raise ApiError("Voya AI is unavailable right now. Please try again in a moment.", 502)
         try:
-            itinerary = validate_itinerary(_parse_json(raw), destination, budget, travel_style)
+            itinerary = validate_itinerary(_parse_json(raw), destination, budget, travel_style, num_days)
             return ok(itinerary=itinerary)
         except (ValueError, json.JSONDecodeError) as e:
             last_problem = e
