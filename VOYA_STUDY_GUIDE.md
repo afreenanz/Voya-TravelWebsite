@@ -253,7 +253,7 @@ The **Plan a trip** form (`PlanForm` → `/api/generate-trip` → `ItineraryView
 
 **Why this changed (good interview story):** the first version told the AI to "make the costs add up to the budget", so a ₹50,000 budget always came back as exactly ₹50,000, which isn't believable. Now the AI only estimates and code does the maths.
 
-**Place search in the form:** destination and departure fields call `/api/places/autocomplete`. Destinations use **Photon** (komoot's OpenStreetMap search, ranked by importance, so "Bali" → the Indonesian province and "Santorini" → Greece); departures add **Geoapify** airports ("BLR airport" → Kempegowda International Airport). Results are cached for a day and the browser waits 250ms after typing (debounce) to respect the free services' fair use.
+**Place search in the form:** destination and departure fields call `/api/places/autocomplete`. Destinations use **Photon** (komoot's OpenStreetMap search, ranked by importance, so "Bali" → the Indonesian province and "Santorini" → Greece); departures are ranked near the visitor using Vercel's `x-vercel-ip-latitude/longitude` headers ("Salem" → Tamil Nadu for someone in India; Geoapify would otherwise rank by the US server's location), while airports come from the curated list with IATA codes. Results are cached for a day and the browser waits 250ms after typing (debounce) to respect the free services' fair use.
 
 ## 10. The AI travel agent (LangGraph)
 

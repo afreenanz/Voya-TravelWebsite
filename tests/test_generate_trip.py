@@ -73,7 +73,7 @@ def test_invalid_requests_never_reach_the_ai(client, make_user, fake_engine, ove
 def test_autocomplete_endpoint(client, make_user, monkeypatch):
     assert client.get("/api/places/autocomplete?q=goa").status_code == 401
     u = make_user()
-    monkeypatch.setattr(voya.geo_tool, "autocomplete", lambda q, kind: [{"name": q.title(), "kind": kind}])
+    monkeypatch.setattr(voya.geo_tool, "autocomplete", lambda q, kind, **k: [{"name": q.title(), "kind": kind}])
     assert client.get("/api/places/autocomplete?q=g", headers=u["headers"]).json["results"] == []
     r = client.get("/api/places/autocomplete?q=goa&kind=departure", headers=u["headers"]).json
     assert r["results"] == [{"name": "Goa", "kind": "departure"}]

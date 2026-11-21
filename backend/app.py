@@ -882,6 +882,14 @@ def api_agent_confirm():
 
 
 # ── Place autocomplete (planner fields) ─────────────────────────────────────
+def _visitor_location():
+    """Approximate visitor location from Vercel's edge headers (None locally)."""
+    try:
+        return (float(request.headers["x-vercel-ip-latitude"]), float(request.headers["x-vercel-ip-longitude"]))
+    except (KeyError, ValueError):
+        return None
+
+
 @app.get("/api/places/autocomplete")
 @require_auth
 def api_places_autocomplete():
@@ -893,7 +901,7 @@ def api_places_autocomplete():
     rate_limit("lookup", g.email)
     try:
         kind = "departure" if request.args.get("kind") == "departure" else "destination"
-        return ok(results=geo_tool.autocomplete(q, kind))
+        return ok(results=geo_tool.autocomplete(q, kind, near=_visitor_location()))
     except geo_tool.ToolUnavailable as e:
         raise ApiError(f"Place search is unavailable right now ({e}).", 503)
 

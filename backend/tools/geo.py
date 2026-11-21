@@ -75,10 +75,11 @@ def verify_place(place_name, dest):
 
 
 # ── Autocomplete for the planner's destination / departure fields ───────────
-# Destinations: Photon (komoot, OpenStreetMap) ranks by importance, so "Bali"
-# gives the Indonesian province and "Santorini" the Greek island. Free, no key,
-# fair use → results are cached for a day and the browser debounces typing.
-# Airports: Geoapify's autocomplete is better ("BLR airport" → Kempegowda).
+# Photon (komoot, OpenStreetMap) ranks by importance, so "Bali" gives the
+# Indonesian province and "Santorini" the Greek island. Free, no key, fair use →
+# results are cached for a day and the browser debounces typing. Geoapify is the
+# backup. Departure *airports* come from the curated list in the form (with IATA
+# codes); airport autocomplete was too noisy (hotels, bus depots, car parks).
 PHOTON_URL = "https://photon.komoot.io/api/"
 AUTOCOMPLETE_URL = "https://api.geoapify.com/v1/geocode/autocomplete"
 PHOTON_TYPES = ("country", "state", "county", "city", "district", "locality", "other")
@@ -94,9 +95,16 @@ def _item(name, state, country, cc, kind):
     return {"name": name, "detail": detail, "country_code": (cc or "").lower(), "flag": flag_emoji(cc), "type": kind}
 
 
-def _photon(text):
-    data = http_get_json(PHOTON_URL, {"q": text, "limit": 10, "lang": "en"}, timeout=6,
-                         cache_ttl=24 * 3600, service="Place search")
+def _bias(near):
+    """(lat, lon) rounded to ~10 km so cached results are shared by nearby users."""
+    return (round(near[0], 1), round(near[1], 1)) if near else None
+
+
+def _photon(text, near=None):
+    params = {"q": text, "limit": 10, "lang": "en"}
+    if near:
+        params.update({"lat": near[0], "lon": near[1]})
+    data = http_get_json(PHOTON_URL, params, timeout=6, cache_ttl=24 * 3600, service="Place search")
     out = []
     for f in data.get("features") or []:
         p = f.get("properties") or {}
@@ -107,19 +115,16 @@ def _photon(text):
     return out
 
 
-def _geoapify(text, airports_only=False):
+def _geoapify(text, near=None):
     if not common.GEOAPIFY_KEY:
         return []
-    data = http_get_json(AUTOCOMPLETE_URL, {"text": text, "format": "json", "limit": 10, "lang": "en",
-                                            "apiKey": common.GEOAPIFY_KEY}, cache_ttl=24 * 3600, service="Place search")
+    params = {"text": text, "format": "json", "limit": 10, "lang": "en", "apiKey": common.GEOAPIFY_KEY}
+    if near:  # without a bias Geoapify ranks by the *server's* location (a US data centre)
+        params["bias"] = f"proximity:{near[1]},{near[0]}"
+    data = http_get_json(AUTOCOMPLETE_URL, params, cache_ttl=24 * 3600, service="Place search")
     out = []
     for r in data.get("results") or []:
         rtype = r.get("result_type") or ""
-        if airports_only:
-            name = r.get("name") or ""
-            if rtype == "amenity" and "airport" in name.lower() and "terminal" not in name.lower():
-                out.append(_item(name, r.get("state"), r.get("country"), r.get("country_code"), "airport"))
-            continue
         if rtype in ("street", "postcode", "building", "amenity"):
             continue
         name = r.get(rtype) if rtype in ("country", "state") else (r.get("city") or r.get("name"))
@@ -129,22 +134,22 @@ def _geoapify(text, airports_only=False):
     return out
 
 
-def autocomplete(text, kind="destination", limit=6):
-    """Any city, region, country (and, for departures, airport) worldwide.
+def autocomplete(text, kind="destination", limit=6, near=None):
+    """Any city, region or country worldwide.
+    near: the visitor's approximate (lat, lon). Departures are ranked near the
+    visitor ("Kochi" → Kerala for someone in India); destinations stay unbiased.
     → [{"name", "detail", "country_code", "flag", "type"}]. Raises ToolUnavailable if every source fails."""
     text = " ".join((text or "").split())[:80]
     if len(text) < 2:
         return []
+    near = _bias(near) if kind == "departure" else None
     results, errors = [], []
-    for source in ((lambda: _geoapify(text, airports_only=True)) if kind == "departure" else None, lambda: _photon(text),
-                   lambda: _geoapify(text)):
-        if source is None:
-            continue
+    for source in (lambda: _photon(text, near), lambda: _geoapify(text, near)):
         try:
             results += source()
         except ToolUnavailable as e:
             errors.append(e)
-        if len(results) >= limit + 2 and kind != "departure":
+        if len(results) >= limit + 2:
             break
     if not results and errors:
         raise ToolUnavailable(str(errors[0]))
@@ -154,7 +159,4 @@ def autocomplete(text, kind="destination", limit=6):
         if key not in seen:
             seen.add(key)
             out.append(r)
-    if kind == "departure":  # airports first (max 2), then cities
-        airports = [r for r in out if r["type"] == "airport"][:2]
-        out = airports + [r for r in out if r["type"] != "airport"]
     return out[:limit]

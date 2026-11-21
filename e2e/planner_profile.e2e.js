@@ -30,9 +30,11 @@ const iso = d => { const x = new Date(); x.setDate(x.getDate() + d); return x.to
     check('destination search finds Santorini (Greece)', sant);
     await page.click('text=Aegean, Greece');
     check('picked value includes the country', (await page.inputValue('input[placeholder="Where do you want to go?"]')) === 'Santorini, Greece');
-    await page.fill('input[placeholder="Your city or airport"]', 'BLR airport');
-    check('departure search finds Kempegowda airport', await page.waitForSelector('text=Kempegowda International Airport', { timeout: 15000 }).then(() => true, () => false));
-    await page.click('text=Kempegowda International Airport');
+    await page.fill('input[placeholder="Your city or airport"]', 'salem');
+    check('departure search finds any city (Salem, Tamil Nadu)', await page.waitForSelector('text=Tamil Nadu, India', { timeout: 15000 }).then(() => true, () => false));
+    await page.fill('input[placeholder="Your city or airport"]', 'BLR');
+    check('airport code matches the curated airport list', await page.waitForSelector('text=Kempegowda', { timeout: 10000 }).then(() => true, () => false));
+    await page.click('text=Kempegowda');
     const d = await page.$$('input[type=date]'); await d[0].fill(iso(20)); await d[1].fill(iso(22));
     await page.click('button:has-text("Train")');
     check('travel mode chip selectable', (await page.getAttribute('button:has-text("Train")', 'aria-pressed')) === 'true');

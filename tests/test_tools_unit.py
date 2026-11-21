@@ -385,25 +385,26 @@ def test_modify_keeps_travel_mode_label(base_itin):
 # ── Place autocomplete ──────────────────────────────────────────────────────
 def test_autocomplete_destination_prefers_photon_and_dedupes(monkeypatch):
     item = lambda name, cc, kind="city", detail="": {"name": name, "detail": detail, "country_code": cc, "flag": geo.flag_emoji(cc), "type": kind}
-    monkeypatch.setattr(geo, "_photon", lambda t: [item("Santorini", "gr", "other", "Aegean, Greece"), item("Santorini", "gr", "other")])
-    monkeypatch.setattr(geo, "_geoapify", lambda t, airports_only=False: [item("Binangonan", "ph")])
+    monkeypatch.setattr(geo, "_photon", lambda t, near=None: [item("Santorini", "gr", "other", "Aegean, Greece"), item("Santorini", "gr", "other")])
+    monkeypatch.setattr(geo, "_geoapify", lambda t, near=None: [item("Binangonan", "ph")])
     r = geo.autocomplete("santorini")
     assert [x["name"] for x in r] == ["Santorini", "Binangonan"] and r[0]["flag"] == "🇬🇷"
 
 
-def test_autocomplete_departure_puts_airports_first(monkeypatch):
-    airport = {"name": "Kempegowda International Airport", "detail": "Karnataka, India", "country_code": "in", "flag": "🇮🇳", "type": "airport"}
-    city = {"name": "Bengaluru", "detail": "Karnataka, India", "country_code": "in", "flag": "🇮🇳", "type": "city"}
-    monkeypatch.setattr(geo, "_photon", lambda t: [city])
-    monkeypatch.setattr(geo, "_geoapify", lambda t, airports_only=False: [airport] if airports_only else [])
-    assert [x["type"] for x in geo.autocomplete("blr airport", "departure")] == ["airport", "city"]
+def test_autocomplete_biases_departures_to_the_visitor_only(monkeypatch):
+    seen = []
+    monkeypatch.setattr(geo, "_photon", lambda t, near=None: seen.append(near) or [
+        {"name": "Kochi", "detail": "Kerala, India", "country_code": "in", "flag": "🇮🇳", "type": "city"}])
+    geo.autocomplete("kochi", "departure", near=(12.9716, 77.5946))
+    geo.autocomplete("kochi", "destination", near=(12.9716, 77.5946))
+    assert seen == [(13.0, 77.6), None]          # rounded for caching; destinations unbiased
 
 
 def test_autocomplete_survives_one_source_failing(monkeypatch):
     def down(*a, **k):
         raise common.ToolUnavailable("Place search did not respond in time")
     monkeypatch.setattr(geo, "_photon", down)
-    monkeypatch.setattr(geo, "_geoapify", lambda t, airports_only=False: [] if airports_only else [
+    monkeypatch.setattr(geo, "_geoapify", lambda t, near=None: [
         {"name": "Goa", "detail": "India", "country_code": "in", "flag": "🇮🇳", "type": "state"}])
     assert [x["name"] for x in geo.autocomplete("goa")] == ["Goa"]
     monkeypatch.setattr(geo, "_geoapify", down)
