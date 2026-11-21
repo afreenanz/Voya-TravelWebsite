@@ -72,3 +72,89 @@ def verify_place(place_name, dest):
             "source": SOURCE,
         })
     return out
+
+
+# ── Autocomplete for the planner's destination / departure fields ───────────
+# Destinations: Photon (komoot, OpenStreetMap) ranks by importance, so "Bali"
+# gives the Indonesian province and "Santorini" the Greek island. Free, no key,
+# fair use → results are cached for a day and the browser debounces typing.
+# Airports: Geoapify's autocomplete is better ("BLR airport" → Kempegowda).
+PHOTON_URL = "https://photon.komoot.io/api/"
+AUTOCOMPLETE_URL = "https://api.geoapify.com/v1/geocode/autocomplete"
+PHOTON_TYPES = ("country", "state", "county", "city", "district", "locality", "other")
+
+
+def flag_emoji(country_code):
+    cc = (country_code or "").lower()
+    return "".join(chr(0x1F1E6 + ord(c) - 97) for c in cc) if len(cc) == 2 and cc.isalpha() else "📍"
+
+
+def _item(name, state, country, cc, kind):
+    detail = ", ".join(p for p in (state, country) if p and p != name)
+    return {"name": name, "detail": detail, "country_code": (cc or "").lower(), "flag": flag_emoji(cc), "type": kind}
+
+
+def _photon(text):
+    data = http_get_json(PHOTON_URL, {"q": text, "limit": 10, "lang": "en"}, timeout=6,
+                         cache_ttl=24 * 3600, service="Place search")
+    out = []
+    for f in data.get("features") or []:
+        p = f.get("properties") or {}
+        if p.get("type") not in PHOTON_TYPES or not p.get("name"):
+            continue
+        out.append(_item(p["name"], p.get("state") if p.get("type") != "state" else "", p.get("country") if p.get("type") != "country" else "",
+                         p.get("countrycode"), "region" if p.get("type") in ("state", "county") else p.get("type")))
+    return out
+
+
+def _geoapify(text, airports_only=False):
+    if not common.GEOAPIFY_KEY:
+        return []
+    data = http_get_json(AUTOCOMPLETE_URL, {"text": text, "format": "json", "limit": 10, "lang": "en",
+                                            "apiKey": common.GEOAPIFY_KEY}, cache_ttl=24 * 3600, service="Place search")
+    out = []
+    for r in data.get("results") or []:
+        rtype = r.get("result_type") or ""
+        if airports_only:
+            name = r.get("name") or ""
+            if rtype == "amenity" and "airport" in name.lower() and "terminal" not in name.lower():
+                out.append(_item(name, r.get("state"), r.get("country"), r.get("country_code"), "airport"))
+            continue
+        if rtype in ("street", "postcode", "building", "amenity"):
+            continue
+        name = r.get(rtype) if rtype in ("country", "state") else (r.get("city") or r.get("name"))
+        if name:
+            out.append(_item(name, r.get("state") if rtype != "state" else "", r.get("country") if rtype != "country" else "",
+                             r.get("country_code"), rtype))
+    return out
+
+
+def autocomplete(text, kind="destination", limit=6):
+    """Any city, region, country (and, for departures, airport) worldwide.
+    → [{"name", "detail", "country_code", "flag", "type"}]. Raises ToolUnavailable if every source fails."""
+    text = " ".join((text or "").split())[:80]
+    if len(text) < 2:
+        return []
+    results, errors = [], []
+    for source in ((lambda: _geoapify(text, airports_only=True)) if kind == "departure" else None, lambda: _photon(text),
+                   lambda: _geoapify(text)):
+        if source is None:
+            continue
+        try:
+            results += source()
+        except ToolUnavailable as e:
+            errors.append(e)
+        if len(results) >= limit + 2 and kind != "departure":
+            break
+    if not results and errors:
+        raise ToolUnavailable(str(errors[0]))
+    out, seen = [], set()
+    for r in results:
+        key = (r["name"].lower(), r["country_code"])
+        if key not in seen:
+            seen.add(key)
+            out.append(r)
+    if kind == "departure":  # airports first (max 2), then cities
+        airports = [r for r in out if r["type"] == "airport"][:2]
+        out = airports + [r for r in out if r["type"] != "airport"]
+    return out[:limit]

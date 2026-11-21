@@ -72,4 +72,7 @@ def run_turn(*a, **k):
 
 
 service.run_turn = run_turn
+# The Plan Trip form (/api/generate-trip) uses the same engine: same stand-in LLM.
+_real_generate = itinerary.generate_itinerary
+voya.itinerary_tool.generate_itinerary = lambda **kw: _real_generate(**{**kw, "ai_call": fake_itinerary_ai})
 voya.app.run(host="127.0.0.1", port=5002, threaded=True)

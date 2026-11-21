@@ -80,7 +80,7 @@ def format_amount(amount, currency="INR"):
     return f"{sign}{SYMBOLS.get(currency, currency + ' ')}{grouped}"
 
 
-def calculate_budget(estimates, *, total_budget=None, days=1, travelers=1, currency="INR"):
+def calculate_budget(estimates, *, total_budget=None, days=1, travelers=1, currency="INR", labels=None):
     """estimates: {category: amount} (AI estimates for the WHOLE trip, all travellers).
     total_budget: the user's budget (number or text like '₹60,000') or None.
     → {"status": "ok"|"error", categories, total, budget, remaining, over_budget, per_day, ...}"""
@@ -109,7 +109,7 @@ def calculate_budget(estimates, *, total_budget=None, days=1, travelers=1, curre
 
     total = sum(amounts.values(), Decimal(0))
     cats = [{
-        "key": key, "label": CATEGORIES[key], "amount": int(v), "formatted": format_amount(v, currency),
+        "key": key, "label": {**CATEGORIES, **(labels or {})}[key], "amount": int(v), "formatted": format_amount(v, currency),
         "share_pct": float((v / total * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)) if total else 0.0,
     } for key, v in amounts.items()]
     result = {

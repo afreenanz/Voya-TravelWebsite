@@ -44,7 +44,7 @@ Everything you need to explain, defend and go deep on this project in an intervi
 2. **The AI is not trusted with facts.** Places come from OpenStreetMap (via Geoapify), weather from Open-Meteo, and money is calculated in Python with `Decimal`. The AI only drafts the plan and estimates costs per category. The UI shows "4 of 6 stops verified on the map · costs are estimates".
 3. **Safe by design.** The AI can't save anything on its own. Saving happens only when the user presses "Save to My Trips" or explicitly says "save it", and success is reported only after the database row is read back.
 4. **Built for real constraints.** The free AI tier allows 50 requests a day, so the agent plans all tools in one AI call and runs them in code: a full trip costs 2 AI calls instead of 5–6. Free models fail often, so there's automatic fallback across 3 models.
-5. **Tested properly.** 112 automated tests (unit + integration against the real database), browser tests on desktop and mobile, and an evaluation set of 20 realistic requests for the real model.
+5. **Tested properly.** 130 automated tests (unit + integration against the real database), browser tests on desktop and mobile, and an evaluation set of 20 realistic requests for the real model.
 
 ### If asked "what was the hardest part?"
 Making free AI models reliable: they hang, get rate-limited, or return empty answers. See story 16.2 (empty answers from hidden reasoning) and 16.3 (daily limit).
@@ -219,9 +219,10 @@ Every `/api` response is JSON: `{"success": true, …}` or `{"success": false, "
 | Memory (v2) | `GET/PUT/DELETE /api/preferences`, `DELETE /api/preferences/<key>`, `GET /api/memory/context` | Context = what the agent knows about you |
 | Conversations (v2) | `GET /api/conversations`, `GET/DELETE /api/conversations/<id>` | Owner-only; invalid or foreign id → 404 |
 | Agent (v2, 6/min) | `POST /api/agent/chat` (JSON), `POST /api/agent/stream` (SSE), `POST /api/agent/confirm` | Confirm takes `{conversation_id, action: "save_trip"}` |
+| Places | `GET /api/places/autocomplete?q=&kind=destination\|departure` (60/min) | Worldwide suggestions for the planner; keeps the Geoapify key server-side |
 | Ops | `GET /api/cron/keepalive` | Daily Vercel cron; optional `CRON_SECRET` |
 
-Pages: `/`, `/login`, `/app`, `/app/plan`, `/app/trips`, `/app/explore`, `/app/profile`, `/auth/callback`, plus static files. Anything else gets the 404 page.
+Pages: `/`, `/login`, `/app`, `/app/plan`, `/app/trips`, `/app/explore`, `/app/profile`, `/app/settings`, `/auth/callback`, plus static files. Anything else gets the 404 page.
 
 ---
 
@@ -242,18 +243,17 @@ File: `backend/services/ai.py`. Everything that talks to an LLM goes through `ca
 
 ## 9. The classic planner
 
-The original flow, still used by **Plan a trip** (`PlanForm` → `/api/generate-trip` → `ItineraryView`):
+The **Plan a trip** form (`PlanForm` → `/api/generate-trip` → `ItineraryView`) now runs on **the same engine as the agent**:
 
-1. Validate: destination, budget, dates in `YYYY-MM-DD`, end ≥ start, at most 14 days, 1–20 travellers.
-2. Rate limit (4/min per user), record the search, read the profile for personalisation (home airport, budget tier, style).
-3. Build a strict JSON-only prompt with the exact schema and an allowed icon list.
-4. Call the AI (JSON mode, up to 8,192 tokens). The time budget is 100s per attempt and 110s in total, under Vercel's 120s limit.
-5. Validate: there must be exactly the requested number of days (extra days are trimmed, missing days trigger a retry), each day needs activities, and there must be a cost total.
-6. **Retry once** on an empty, unreadable or incomplete answer.
+1. Validate: destination, budget, dates (end ≥ start, ≤ 14 days), 1–20 travellers, travel mode (`any | flight | train | bus | car`).
+2. Rate limit (4/min), record the search, load the user's context (profile, preferences, recent trips).
+3. **Ground it:** search real places (Geoapify) and the forecast (Open-Meteo).
+4. **Generate** with `tools/itinerary.generate_itinerary()`. The prompt asks for **realistic** prices for the destination, season, travel mode and group size, and explicitly says *don't bend the numbers to match the budget*.
+5. **Budget in code:** the categories are added up with `Decimal`, so the total is the real sum (e.g. ₹47,850), and the UI shows "₹2,150 under your ₹50,000 budget" (or "over" in red). The travel mode relabels the first cost line ("Train tickets", "Bus tickets", "Fuel & tolls").
 
-The UI shows a loading screen with a progress bar that eases towards 95% rather than pretending to know exactly how long it will take.
+**Why this changed (good interview story):** the first version told the AI to "make the costs add up to the budget", so a ₹50,000 budget always came back as exactly ₹50,000, which isn't believable. Now the AI only estimates and code does the maths.
 
----
+**Place search in the form:** destination and departure fields call `/api/places/autocomplete`. Destinations use **Photon** (komoot's OpenStreetMap search, ranked by importance, so "Bali" → the Indonesian province and "Santorini" → Greece); departures add **Geoapify** airports ("BLR airport" → Kempegowda International Airport). Results are cached for a day and the browser waits 250ms after typing (debounce) to respect the free services' fair use.
 
 ## 10. The AI travel agent (LangGraph)
 
@@ -382,7 +382,8 @@ Every tool returns a status (`ok | partial | unavailable | error`) and **never r
 | Plan Trip | `plantrip/App.jsx`, `PlanForm.jsx`, `ItineraryView.jsx` | Classic form → itinerary; also opens an agent plan via `?conversation=<id>` |
 | My Trips | `plantrip/MyTripsView.jsx` | Filters, status changes, delete, open |
 | Explore | `explore/ExploreApp.jsx` | Destination grid → planner prefilled |
-| Profile | `profile/ProfileApp.jsx`, `profile/Preferences.jsx` | Edit profile, photo, stats from real trips, **Travel preferences** card |
+| Profile | `profile/ProfileApp.jsx` (+ shared `profile/parts.jsx`) | Read-only summary: photo, name, **Edit profile** button, stats, your trips, passport stamps, countries |
+| Settings | `settings/SettingsApp.jsx`, `profile/Preferences.jsx` | Edit profile, **Travel preferences**, Recent activity, Account (sign out) |
 
 ### The agent card (`dashboard/agent.jsx`)
 - Same visual design as the original chat card (header, bubbles, input). It was rewired, not redesigned.
@@ -392,7 +393,7 @@ Every tool returns a status (`ok | partial | unavailable | error`) and **never r
 - **Open full plan** → `/app/plan?conversation=<id>`, which reuses the existing `ItineraryView`. That works because the agent outputs the same itinerary shape (each activity keeps `time/icon/name/note`).
 - **History** (past conversations), **New chat**, suggestion chips. The conversation id is kept in `localStorage`, so a refresh restores the chat.
 
-### Travel preferences card (`profile/Preferences.jsx`)
+### Travel preferences card (`profile/Preferences.jsx`, shown in Settings)
 Chips per list (add/remove), pace selector, budget text. **Save**, **Undo changes**, **Forget all** (with confirmation). Uses `GET/PUT/DELETE /api/preferences`.
 
 ### Shared UI and mobile
@@ -458,8 +459,8 @@ Turning off hidden reasoning made itineraries **2–4× faster** (81s → 44s on
 
 | Layer | What | Count / result |
 |---|---|---|
-| Unit (pytest, no network) | Budget maths and parsing, weather window, place ranking and verification rules, itinerary validation and retries, modify keeping unchanged days, AI payload (model order, fallback, reasoning off), preference validation | Part of the 112 |
-| Integration (pytest, real Supabase) | Memory API, privacy between users, cascade delete, save de-duplication and read-back, **the agent end to end** with a scripted LLM (plan → modify → save, failed save not claimed, guardrail questions, daily limit, SSE endpoint) | Part of the 112; all test data is deleted afterwards |
+| Unit (pytest, no network) | Budget maths and parsing, weather window, place ranking and verification rules, itinerary validation and retries, modify keeping unchanged days, AI payload (model order, fallback, reasoning off), preference validation | Part of the 130 |
+| Integration (pytest, real Supabase) | Memory API, privacy between users, cascade delete, save de-duplication and read-back, **the agent end to end** with a scripted LLM (plan → modify → save, failed save not claimed, guardrail questions, daily limit, SSE endpoint) | Part of the 130; all test data is deleted afterwards |
 | Live (opt-in, `pytest -m live`) | Real Geoapify and Open-Meteo calls | 3 |
 | Browser (Playwright, `e2e/`) | Agent flow: live steps, preview, save, modify, reload, open full plan, history, new chat, search bar, preferences edit/delete, no overflow, no JS errors | 21 checks × desktop and mobile, all passing |
 | Site smoke (`e2e/site_smoke.e2e.js`) | Every page on desktop and mobile: console errors, failed requests, overflow, every landing link | Clean |
@@ -640,8 +641,8 @@ Push to `main` → Vercel builds and deploys production. Python dependencies com
 | Fact | Value |
 |---|---|
 | Backend size | about 3,200 lines of Python across app, services, tools and agent |
-| Automated tests | 112 pytest (unit + integration) + 3 live API tests |
-| Browser tests | 21 checks × 2 viewports (desktop 1440px, mobile 390px), all passing |
+| Automated tests | 130 pytest (unit + integration) + 3 live API tests |
+| Browser tests | Agent flow 21 checks + planner/profile 20 checks, each on desktop (1440px) and mobile (390px), all passing |
 | AI calls per trip plan | 2 |
 | Free AI quota | 50 requests/day (1,000 with $10 credit) |
 | Session token | HS256, 7 days |

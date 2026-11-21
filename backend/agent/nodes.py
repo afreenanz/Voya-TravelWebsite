@@ -282,6 +282,10 @@ def execute_tools(state, config):
                 weather = res
                 detail = {"ok": "Forecast found", "partial": "Partial forecast"}.get(res["status"], "No forecast available")
             elif tool == "generate_itinerary":
+                try:  # shows up under "Recent searches" on the dashboard
+                    d.db.table("searches").insert({"user_email": state["email"], "destination": trip["destination"][:120]}).execute()
+                except Exception:
+                    log.warning("could not record agent search")
                 res = d.generate_itinerary(
                     destination=trip["destination"], start_date=trip["start_date"], end_date=trip["end_date"],
                     travelers=trip["travelers"], budget=trip["budget"] or None, interests=trip["interests"],

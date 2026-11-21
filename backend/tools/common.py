@@ -13,6 +13,8 @@ log = logging.getLogger("voya")
 
 GEOAPIFY_KEY = (os.getenv("GEOAPIFY_API_KEY") or "").strip()
 DEFAULT_TIMEOUT_S = 10
+# Some free APIs (e.g. Photon) reject the default python-requests User-Agent.
+HEADERS = {"User-Agent": "travel-planner-app/1.0 (python-requests)"}
 
 
 class ToolUnavailable(Exception):
@@ -36,7 +38,7 @@ def http_get_json(url, params, *, timeout=DEFAULT_TIMEOUT_S, cache_ttl=0, servic
             if hit and hit[0] > now:
                 return hit[1]
     try:
-        res = requests.get(url, params=params, timeout=timeout)
+        res = requests.get(url, params=params, timeout=timeout, headers=HEADERS)
     except requests.Timeout:
         raise ToolUnavailable(f"{service} did not respond in time")
     except requests.RequestException as e:

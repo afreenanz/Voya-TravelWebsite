@@ -33,8 +33,11 @@ from backend.services import memory  # noqa: E402
 from backend.services import trips as trips_service  # noqa: E402
 from backend.services.trips import DEFAULT_GRADIENT  # noqa: E402
 from backend.agent import service as agent_service  # noqa: E402
-from backend.tools.itinerary import ICONS as ALLOWED_ICONS  # noqa: E402
-from backend.services.ai import AIError, OPENROUTER_CHAT_MODEL, call_openrouter, parse_json, user_message  # noqa: E402
+from backend.tools import geo as geo_tool  # noqa: E402
+from backend.tools import itinerary as itinerary_tool  # noqa: E402
+from backend.tools import places as places_tool  # noqa: E402
+from backend.tools import weather as weather_tool  # noqa: E402
+from backend.services.ai import AIError, OPENROUTER_CHAT_MODEL, call_openrouter, user_message  # noqa: E402
 
 mimetypes.add_type("application/javascript", ".jsx")
 
@@ -62,7 +65,6 @@ TOKEN_ISSUER      = "voya"
 # Free models can take 60-90s for a full itinerary, so one attempt may use most
 # of the budget; the retry only runs if at least 15s remain.
 AI_TOTAL_BUDGET_S = 110
-AI_ATTEMPT_TIMEOUT_S = 100
 CHAT_TIMEOUT_S    = 30
 MAX_TRIP_DAYS     = 14
 
@@ -225,7 +227,7 @@ def require_auth(fn):
 # own memory and instances are recycled, so this is a best-effort brake against
 # accidental hammering, not a hard global quota. A global limit would need a
 # shared store (e.g. a Supabase table or Redis).
-_RATE = {"generate": (4, 60), "agent": (6, 60), "chat": (15, 60), "auth": (10, 60)}
+_RATE = {"generate": (4, 60), "agent": (6, 60), "chat": (15, 60), "auth": (10, 60), "lookup": (60, 60)}
 _rate_hits = defaultdict(deque)
 _rate_lock = threading.Lock()
 
@@ -286,6 +288,14 @@ def int_field(data, key, *, default, lo, hi, label):
     if not lo <= value <= hi:
         raise ApiError(f"{label} must be between {lo} and {hi}.", 400)
     return value
+
+
+def record_search(email, destination):
+    """Recent searches are nice-to-have: never block the request if this fails."""
+    try:
+        db().table("searches").insert({"user_email": email, "destination": destination[:120]}).execute()
+    except Exception as e:
+        log.warning("could not record search: %s", e)
 
 
 def get_user(email, columns="*"):
@@ -354,6 +364,7 @@ APP_PAGES = {
     "trips": "plan.html",
     "explore": "explore.html",
     "profile": "profile.html",
+    "settings": "settings.html",
 }
 
 
@@ -596,8 +607,9 @@ def _trip_out(row):
     # Older rows stored only the days array; newer rows store {days, cost_breakdown}.
     if isinstance(stored, dict):
         days, cost = stored.get("days") or [], stored.get("cost_breakdown")
+        summary, transport = stored.get("budget_summary"), stored.get("transport")
     else:
-        days, cost = stored, None
+        days, cost, summary, transport = stored, None, None, None
     return {
         "id":            str(row.get("id", "")),
         "destination":   row.get("destination") or "",
@@ -613,6 +625,8 @@ def _trip_out(row):
         "gradient":      row.get("gradient") or DEFAULT_GRADIENT,
         "itinerary":     days,
         "costBreakdown": cost,
+        "budgetSummary": summary,
+        "transport":     transport or "",
         "createdAt":     row.get("created_at") or "",
     }
 
@@ -633,6 +647,10 @@ def api_save_trip():
     cost = trip.get("costBreakdown")
     if cost is not None and not isinstance(cost, dict):
         cost = None
+    summary = trip.get("budgetSummary") if isinstance(trip.get("budgetSummary"), dict) else None
+    transport = text(trip, "transport", max_len=10).lower()
+    if transport not in itinerary_tool.TRANSPORT_MODES:
+        transport = ""
     if len(json.dumps(days)) > 200_000:
         raise ApiError("This itinerary is too large to save.", 400)
 
@@ -643,13 +661,13 @@ def api_save_trip():
         "flag":           text(trip, "flag", max_len=16) or "✈️",
         "budget":         text(trip, "budget", max_len=40),
         "days":           int_field(trip, "days", default=len(days), lo=1, hi=60, label="Days"),
-        "start_date":     text(trip, "startDate", max_len=40),
-        "end_date":       text(trip, "endDate", max_len=40),
+        "start_date":     text(trip, "startDate", max_len=40) or None,   # column is a date in the live DB
+        "end_date":       text(trip, "endDate", max_len=40) or None,
         "travelers":      int_field(trip, "travelers", default=1, lo=1, hi=20, label="Travelers"),
         "travel_style":   text(trip, "travelStyle", max_len=120),
         "status":         status,
         "gradient":       text(trip, "gradient", max_len=200) or DEFAULT_GRADIENT,
-        "itinerary_json": {"days": days, "cost_breakdown": cost},
+        "itinerary_json": {"days": days, "cost_breakdown": cost, "budget_summary": summary, "transport": transport or None},
     }
     res = db().table("trips").insert(row).execute()
     if not res.data:
@@ -863,6 +881,23 @@ def api_agent_confirm():
     return ok(**result)
 
 
+# ── Place autocomplete (planner fields) ─────────────────────────────────────
+@app.get("/api/places/autocomplete")
+@require_auth
+def api_places_autocomplete():
+    """Any place worldwide for the Destination / Departing-from fields.
+    Proxied so the Geoapify key never reaches the browser."""
+    q = (request.args.get("q") or "").strip()[:80]
+    if len(q) < 2:
+        return ok(results=[])
+    rate_limit("lookup", g.email)
+    try:
+        kind = "departure" if request.args.get("kind") == "departure" else "destination"
+        return ok(results=geo_tool.autocomplete(q, kind))
+    except geo_tool.ToolUnavailable as e:
+        raise ApiError(f"Place search is unavailable right now ({e}).", 503)
+
+
 # ── Keep-alive (Vercel Cron) ────────────────────────────────────────────────
 # Supabase pauses free projects after ~7 days without activity. A daily cron
 # (vercel.json) makes one tiny query so the demo never goes to sleep.
@@ -912,159 +947,12 @@ def api_chat():
     return ok(reply=reply)
 
 
-def _days_count(start_date, end_date):
-    s = datetime.strptime(start_date, "%Y-%m-%d")
-    e = datetime.strptime(end_date, "%Y-%m-%d")
-    return (e - s).days + 1
-
-
-def _build_prompt(destination, budget, travelers, travel_style, start_date, end_date, num_days, profile=None, from_city=""):
-    p = profile or {}
-    home_airport   = from_city.strip() or (p.get("home_airport") or "").strip()
-    profile_budget = (p.get("preferred_budget") or "").strip()
-    profile_style  = (p.get("travel_style") or "").strip()
-    effective_style = profile_style or travel_style or "balanced"
-
-    profile_section = ""
-    if home_airport or profile_budget or profile_style:
-        profile_section = f"""
-TRAVELER PROFILE (personalise itinerary around these preferences)
-- Home airport:      {home_airport or "Not specified — use nearest major hub"}
-- Preferred budget:  {profile_budget or "Not specified"}
-- Travel style:      {effective_style}
-
-PERSONALISATION RULES
-- All flights must depart from and return to {home_airport or "the traveler's nearest hub"}.
-- Match hotel tier to the preferred budget: budget → hostels/2-star, mid-range → 3-4 star, luxury → 5-star.
-- Prioritise {effective_style} experiences in activity selection.
-- Suggest restaurants matching the travel style and budget tier.
-"""
-
-    return f"""You are an expert travel planner. Create a detailed, realistic {num_days}-day itinerary.
-
-TRIP DETAILS
-- Destination:   {destination}
-- Dates:         {start_date} to {end_date} ({num_days} days)
-- Budget:        {budget} total for {travelers} traveler(s)
-- Travel style:  {effective_style}
-{profile_section}
-STRICT RULES
-1. Return ONLY the raw JSON object — no markdown fences, no explanation text whatsoever.
-2. Include exactly {num_days} day objects, with 4-6 activities per day spread across morning, afternoon, and evening.
-3. Day 1 must start with arrival / check-in. Last day must end with checkout / departure.
-4. Use REAL, named places: actual hotel names, restaurant names, landmark names.
-5. Each "note" must contain: specific detail · estimated cost in same currency as budget · one practical tip. Separate segments with " · ".
-6. "cities" field: 2-4 main areas/cities visited, separated by " · ".
-7. Use ONLY these icon values (exact strings): {", ".join(ALLOWED_ICONS)}
-8. Scale all costs so the total trip stays within the stated budget.
-9. "time" must be HH:MM in 24h format.
-10. cost_breakdown amounts must be realistic estimates for the destination and season. Amounts must sum to the total.
-
-OUTPUT — return exactly this JSON structure, nothing else:
-{{
-  "destination": "{destination}",
-  "cities": "<City1> · <City2>",
-  "budget": "{budget}",
-  "travel_style": "{effective_style}",
-  "days": [
-    {{
-      "day": 1,
-      "title": "<descriptive title>",
-      "theme": "<short theme>",
-      "activities": [
-        {{
-          "time": "HH:MM",
-          "icon": "<icon>",
-          "name": "<specific place or activity>",
-          "note": "<detail · cost · tip>"
-        }}
-      ]
-    }}
-  ],
-  "cost_breakdown": {{
-    "flights":         {{"amount": "<currency + amount>", "note": "Round trip {home_airport or 'origin'} → {destination} · airline · class"}},
-    "accommodation":   {{"amount": "<currency + amount>", "note": "{max(num_days - 1, 1)} nights · hotel name · tier"}},
-    "food":            {{"amount": "<currency + amount>", "note": "All meals, street food, dining"}},
-    "activities":      {{"amount": "<currency + amount>", "note": "Entry fees, tours, experiences"}},
-    "local_transport": {{"amount": "<currency + amount>", "note": "Taxis, metro, buses"}},
-    "misc":            {{"amount": "<currency + amount>", "note": "Shopping, tips, incidentals"}},
-    "total":           "<currency + grand total>"
-  }}
-}}"""
-
-
-_parse_json = parse_json
-
-
-def _clean_str(value, max_len=300):
-    return value.strip()[:max_len] if isinstance(value, str) else ""
-
-
-def validate_itinerary(data, destination, budget, travel_style, num_days=None):
-    """Check the AI result has the shape the UI needs; normalise it. Raises ValueError.
-    With num_days, extra days are trimmed and missing days are an error (so we retry)."""
-    if not isinstance(data, dict):
-        raise ValueError("result is not an object")
-    days_in = data.get("days")
-    if not isinstance(days_in, list) or not days_in:
-        raise ValueError("days missing or empty")
-    if num_days:
-        if len(days_in) < num_days:
-            raise ValueError(f"only {len(days_in)} of {num_days} days")
-        days_in = days_in[:num_days]
-    days = []
-    for i, d in enumerate(days_in, start=1):
-        if not isinstance(d, dict):
-            raise ValueError(f"day {i} is not an object")
-        acts_in = d.get("activities")
-        if not isinstance(acts_in, list) or not acts_in:
-            raise ValueError(f"day {i} has no activities")
-        acts = []
-        for a in acts_in:
-            if isinstance(a, str) and a.strip():
-                acts.append({"time": "", "icon": "map-pin", "name": a.strip()[:200], "note": ""})
-                continue
-            if not isinstance(a, dict) or not _clean_str(a.get("name")):
-                continue
-            icon = _clean_str(a.get("icon"), 40)
-            time_ = _clean_str(a.get("time"), 5)
-            acts.append({
-                "time": time_ if re.fullmatch(r"\d{2}:\d{2}", time_) else "",
-                "icon": icon if icon in ALLOWED_ICONS else "map-pin",
-                "name": _clean_str(a.get("name"), 200),
-                "note": _clean_str(a.get("note"), 400),
-            })
-        if not acts:
-            raise ValueError(f"day {i} has no valid activities")
-        days.append({
-            "day": i,
-            "title": _clean_str(d.get("title"), 120) or f"Day {i}",
-            "theme": _clean_str(d.get("theme"), 120),
-            "activities": acts,
-        })
-
-    cb = data.get("cost_breakdown")
-    if not isinstance(cb, dict) or not _clean_str(str(cb.get("total") or "")):
-        raise ValueError("cost_breakdown missing or has no total")
-    cost = {"total": _clean_str(str(cb.get("total")), 60)}
-    for key in ("flights", "accommodation", "food", "activities", "local_transport", "misc"):
-        item = cb.get(key)
-        if isinstance(item, dict) and item.get("amount") not in (None, ""):
-            cost[key] = {"amount": _clean_str(str(item.get("amount")), 60), "note": _clean_str(item.get("note"), 200)}
-
-    return {
-        "destination":    destination,
-        "cities":         _clean_str(data.get("cities"), 200) or destination,
-        "budget":         budget,
-        "travel_style":   _clean_str(data.get("travel_style"), 120) or travel_style,
-        "days":           days,
-        "cost_breakdown": cost,
-    }
-
-
 @app.post("/api/generate-trip")
 @require_auth
 def api_generate_trip():
+    """The Plan Trip form. Same engine as the agent: real places + forecast as
+    grounding, the LLM drafts the plan and realistic cost estimates, and the
+    budget is added up in code (so the total is NOT just the budget echoed back)."""
     data = body()
     destination  = text(data, "destination", required=True, max_len=120, label="Destination")
     budget       = text(data, "budget", required=True, max_len=40, label="Budget")
@@ -1073,10 +961,13 @@ def api_generate_trip():
     start_date   = text(data, "start_date", required=True, max_len=10, label="Start date")
     end_date     = text(data, "end_date", required=True, max_len=10, label="End date")
     travelers    = int_field(data, "travelers", default=2, lo=1, hi=20, label="Travelers")
+    transport    = (text(data, "transport", max_len=10) or "any").lower()
+    if transport not in itinerary_tool.TRANSPORT_MODES:
+        raise ApiError("Please pick a valid way to travel.", 400)
     if not (DATE_RE.match(start_date) and DATE_RE.match(end_date)):
         raise ApiError("Please pick valid start and end dates.", 400)
     try:
-        num_days = _days_count(start_date, end_date)
+        num_days = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days + 1
     except ValueError:
         raise ApiError("Please pick valid start and end dates.", 400)
     if num_days < 1:
@@ -1084,50 +975,30 @@ def api_generate_trip():
     if num_days > MAX_TRIP_DAYS:
         raise ApiError(f"Trips can be at most {MAX_TRIP_DAYS} days. Pick a shorter date range.", 400)
     rate_limit("generate", g.email)
-
-    try:
-        db().table("searches").insert({"user_email": g.email, "destination": destination}).execute()
-    except Exception as e:  # recent searches are nice-to-have; never block generation
-        log.warning("could not record search: %s", e)
-
-    profile = None
-    try:
-        profile = get_user(g.email, "home_airport,preferred_budget,travel_style")
-    except Exception as e:
-        log.warning("profile lookup failed: %s", e)
-
-    prompt = _build_prompt(destination, budget, travelers, travel_style, start_date, end_date,
-                           num_days, profile, from_city)
-    messages = [
-        {"role": "system", "content": "You are an expert travel planner. Return ONLY valid JSON — no markdown, no explanation."},
-        {"role": "user", "content": prompt},
-    ]
-
     deadline = time.monotonic() + AI_TOTAL_BUDGET_S
-    last_problem = None
-    for attempt in (1, 2):  # one retry, for empty/invalid/incomplete answers
-        remaining = deadline - time.monotonic()
-        if remaining < 15:
-            break
-        try:
-            raw = call_openrouter(messages, max_tokens=8192, json_mode=True,
-                                  timeout=min(AI_ATTEMPT_TIMEOUT_S, remaining))
-        except AIError as e:
-            log.warning("generate-trip attempt %d failed: %s", attempt, e)
-            if str(e) in ("empty response", "malformed response"):
-                last_problem = e
-                continue
-            status = {"timeout": 504, "daily limit": 503}.get(str(e), 502)
-            raise ApiError(user_message(e), status)
-        try:
-            itinerary = validate_itinerary(_parse_json(raw), destination, budget, travel_style, num_days)
-            return ok(itinerary=itinerary)
-        except (ValueError, json.JSONDecodeError) as e:
-            last_problem = e
-            log.warning("generate-trip attempt %d returned unusable JSON: %s", attempt, e)
+    record_search(g.email, destination)
 
-    log.warning("generate-trip giving up: %s", last_problem)
-    raise ApiError("Voya AI returned an incomplete plan. Please try again.", 502)
+    ctx = {}
+    try:
+        ctx = memory.build_user_context(db(), current_user_id(), g.email)
+    except Exception as e:  # personalisation is nice-to-have; never block generation
+        log.warning("context lookup failed: %s", e)
+    interests = [s.strip() for s in travel_style.split(",") if s.strip()] or (ctx.get("preferences") or {}).get("interests") or []
+    places = places_tool.search_places(destination, interests, limit=12)
+    weather = weather_tool.get_weather(destination, start_date, end_date, dest=places.get("destination"))
+    res = itinerary_tool.generate_itinerary(
+        destination=destination, start_date=start_date, end_date=end_date, travelers=travelers, budget=budget,
+        interests=interests, pace=((ctx.get("preferences") or {}).get("pace") or "balanced"),
+        from_city=from_city or ctx.get("home_airport") or "", transport=transport,
+        user_context=memory.context_to_prompt(ctx) if ctx else "", places=places.get("places") or [],
+        weather=weather, dest=places.get("destination"), time_budget_s=max(20, deadline - time.monotonic() - 3))
+    if res["status"] == "error":
+        raise ApiError(res["message"], 400)
+    if res["status"] != "ok":
+        raise ApiError(res["message"], 503 if "free usage limit" in res["message"] else 502)
+    itin = res["itinerary"]
+    itin["travel_style"] = travel_style
+    return ok(itinerary=itin)
 
 
 @app.route("/api/<path:_unused>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

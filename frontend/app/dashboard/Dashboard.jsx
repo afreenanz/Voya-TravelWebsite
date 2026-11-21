@@ -163,6 +163,7 @@ function AISearch() {
           <VChip key={s} tone="sky" size="sm" onClick={() => go(s)}>{s}</VChip>
         ))}
       </div>
+      <RecentSearches />
     </VCard>
   );
 }
@@ -329,14 +330,17 @@ function UpcomingTrips({ trips, error }) {
 
 // ─── Recent Searches ──────────────────────────────────────────
 function RecentSearches() {
+  // Shown as a row inside the AI search card, right under the search box.
   const [searches, setSearches] = useState([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Voya.api('/api/searches').then(r => {
-      if (r.ok) setSearches(r.data.searches);
-      else setError(r.error);
+    const load = () => Voya.api('/api/searches').then(r => {
+      if (r.ok) { setSearches(r.data.searches); setError(''); } else setError(r.error);
     });
+    load();
+    window.addEventListener('voya:searches-changed', load);   // the AI agent planned a trip
+    return () => window.removeEventListener('voya:searches-changed', load);
   }, []);
 
   const handleClear = async () => {
@@ -344,37 +348,29 @@ function RecentSearches() {
     if (r.ok) setSearches([]); else setError(r.error);
   };
 
-  if (error) return <VCard padding={18} radius={18}><VNotice>{error}</VNotice></VCard>;
-  if (searches.length === 0) return null;
+  if (!error && searches.length === 0) return null;
 
   return (
-    <VCard padding={18} radius={18}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon name="clock" size={16} color={C.ocean} />
-          <span style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 15, color: C.navy }}>
-            Recent searches
-          </span>
-        </div>
+    <div data-testid="recent-searches" style={{
+      borderTop: `1px solid ${C.borderSoft}`, padding: '10px 20px 14px',
+      display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
+    }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: C.fb, fontSize: 12, color: C.fg3 }}>
+        <Icon name="clock" size={12} color={C.fg3} /> Recent:
+      </span>
+      {error ? <span style={{ fontFamily: C.fb, fontSize: 12, color: C.danger }}>{error}</span> : searches.map(s => (
+        <VChip key={s.id} tone="ocean" size="sm" icon="search"
+          onClick={() => { window.location.href = `/app/plan?destination=${encodeURIComponent(s.destination)}`; }}>
+          {s.destination}
+        </VChip>
+      ))}
+      {!error && (
         <button onClick={handleClear} style={{
-          border: 0, background: 'none', cursor: 'pointer',
+          border: 0, background: 'none', cursor: 'pointer', marginLeft: 'auto',
           fontFamily: C.fb, fontSize: 12, color: C.fg3,
         }}>Clear</button>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {searches.map(s => (
-          <div key={s.id} onClick={() => { window.location.href = `/app/plan?destination=${encodeURIComponent(s.destination)}`; }} style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '7px 10px', borderRadius: 10,
-            background: C.sky, cursor: 'pointer',
-          }}>
-            <Icon name="search" size={13} color={C.fg3} />
-            <span style={{ fontFamily: C.fb, fontSize: 13, color: C.ink, flex: 1 }}>{s.destination}</span>
-            <Icon name="arrow-right" size={13} color={C.ocean} />
-          </div>
-        ))}
-      </div>
-    </VCard>
+      )}
+    </div>
   );
 }
 
@@ -604,7 +600,6 @@ function Dashboard() {
           <UpcomingTrips trips={trips} error={tripsError} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <AIAssistant />
-            <RecentSearches />
           </div>
         </div>
         <PopularDestinations />

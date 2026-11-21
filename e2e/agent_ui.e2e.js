@@ -1,5 +1,5 @@
 // Agent UI end-to-end: dashboard chat → live steps → preview → save → modify → reload →
-// history → search bar → preferences on profile → open full plan. usage: node agent_ui_e2e.js <base> <shots> [mobile]
+// history → search bar → preferences in settings → open full plan. usage: node agent_ui_e2e.js <base> <shots> [mobile]
 const { chromium } = require('playwright');
 const [base, shots, mobile] = process.argv.slice(2);
 const results = [];
@@ -94,10 +94,10 @@ const tag = mobile ? 'mobile' : 'desktop';
     await ask("What's the weather in Goa?");
     check('weather question answered', /Checking weather/.test(await page.locator('[data-testid=agent-steps]').last().innerText()) && (await lastReply()).length > 20);
 
-    // 9. profile: view, edit, delete preferences
-    await page.goto(base + '/app/profile', { waitUntil: 'networkidle' });
+    // 9. settings: view, edit, delete preferences
+    await page.goto(base + '/app/settings', { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-testid=travel-preferences] >> text=beaches');
-    check('profile shows remembered preferences', await page.isVisible('[data-testid=travel-preferences] >> text=cafes'));
+    check('settings shows remembered preferences', await page.isVisible('[data-testid=travel-preferences] >> text=cafes'));
     await page.click('button[aria-label="Remove cafes"]');
     await page.locator('[data-testid=travel-preferences] input[placeholder="Add…"]').nth(2).fill('scuba diving');
     await page.keyboard.press('Enter');
@@ -108,7 +108,7 @@ const tag = mobile ? 'mobile' : 'desktop';
     await page.waitForSelector('[data-testid=travel-preferences] >> text=scuba diving');
     const prefsText = await page.locator('[data-testid=travel-preferences]').innerText();
     check('preference edits persist', !/\bcafes\b/.test(prefsText) && /beaches/.test(prefsText));
-    check(`profile has no horizontal overflow (${tag})`, (await overflow()) <= 1);
+    check(`settings has no horizontal overflow (${tag})`, (await overflow()) <= 1);
     await page.locator('[data-testid=travel-preferences]').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${shots}/${tag}-agent-preferences.png` });
     page.once('dialog', d => d.accept());

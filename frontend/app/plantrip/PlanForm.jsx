@@ -138,6 +138,32 @@ const TRAVEL_STYLES = [
   { id: 'family',      label: 'Family',       icon: 'users' },
 ];
 
+const TRANSPORT_OPTIONS = [
+  { id: 'any',    label: 'Any',    icon: 'sparkles' },
+  { id: 'flight', label: 'Flight', icon: 'plane' },
+  { id: 'train',  label: 'Train',  icon: 'train-front' },
+  { id: 'bus',    label: 'Bus',    icon: 'bus' },
+  { id: 'car',    label: 'Car',    icon: 'car' },
+];
+
+// Worldwide place search (server proxies Photon/Geoapify). Debounced; the
+// curated list is shown while the field is empty or very short.
+function usePlaceSearch(query, kind) {
+  const [results, setResults] = useState(null);
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setResults(null); return; }
+    let live = true;
+    const t = setTimeout(() => {
+      Voya.api(`/api/places/autocomplete?kind=${kind}&q=${encodeURIComponent(q)}`).then(r => {
+        if (live) setResults(r.ok ? r.data.results : []);
+      });
+    }, 250);
+    return () => { live = false; clearTimeout(t); };
+  }, [query, kind]);
+  return results;
+}
+
 const BUDGET_OPTIONS = ['₹30,000', '₹50,000', '₹75,000', '₹1,00,000', '₹1,50,000+'];
 
 const MAX_TRIP_DAYS = 14;
@@ -154,14 +180,28 @@ function PlanForm({ onGenerate, error, initial }) {
   const [budget, setBudget]           = useState(init.budget || '₹50,000');
   const [travelers, setTravelers]     = useState(init.travelers || 2);
   const [styles, setStyles]           = useState(init.styles || ['cultural', 'food']);
+  const [transport, setTransport]     = useState(init.transport || 'any');
+  const [destFlag, setDestFlag]       = useState(init.flag || '');
   const [formError, setFormError]     = useState('');
 
-  const filtered     = DESTINATIONS_LIST.filter(d =>
-    dest.length === 0 || d.name.toLowerCase().includes(dest.toLowerCase())
-  );
-  const filteredFrom = DEPARTURE_CITIES.filter(d =>
-    from.length === 0 || d.name.toLowerCase().includes(from.toLowerCase()) || d.code.toLowerCase().includes(from.toLowerCase())
-  );
+  const destRemote = usePlaceSearch(showSugg ? dest : '', 'destination');
+  const fromRemote = usePlaceSearch(showFromSugg ? from : '', 'departure');
+  // Curated picks that match what's typed come first, then worldwide results.
+  const curatedDest = DESTINATIONS_LIST.filter(d => dest.length === 0 || d.name.toLowerCase().includes(dest.toLowerCase()))
+    .map(d => ({ key: 'c-' + d.name, title: d.name, sub: d.hint, badge: d.flag, value: d.name, flag: d.flag }));
+  const curatedFrom = DEPARTURE_CITIES.filter(d =>
+    from.length === 0 || d.name.toLowerCase().includes(from.toLowerCase()) || d.code.toLowerCase().includes(from.toLowerCase()))
+    .map(d => ({ key: 'c-' + d.code, title: d.name, sub: d.hint, code: d.code, value: `${d.name} (${d.code})` }));
+  const remoteItems = (list) => (list || []).map(r => ({
+    key: `r-${r.name}-${r.detail}`, title: r.name, sub: r.detail || r.type, badge: r.flag, flag: r.flag,
+    value: r.detail ? `${r.name}, ${r.detail.split(', ').slice(-1)[0]}` : r.name,
+  }));
+  const mergeItems = (curated, remote) => {
+    const seen = new Set(curated.map(c => c.title.toLowerCase()));
+    return [...curated.slice(0, 3), ...remoteItems(remote).filter(r => !seen.has(r.title.toLowerCase()))].slice(0, 7);
+  };
+  const filtered     = dest.trim().length < 2 ? curatedDest.slice(0, 6) : mergeItems(curatedDest, destRemote);
+  const filteredFrom = from.trim().length < 2 ? curatedFrom.slice(0, 6) : mergeItems(curatedFrom, fromRemote);
 
   const toggleStyle = (id) => setStyles(prev =>
     prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
@@ -178,7 +218,7 @@ function PlanForm({ onGenerate, error, initial }) {
     if (days > MAX_TRIP_DAYS) { setFormError(`Trips can be at most ${MAX_TRIP_DAYS} days. Pick a shorter range.`); return; }
     setFormError('');
     const styleLabels = TRAVEL_STYLES.filter(s => styles.includes(s.id)).map(s => s.label);
-    onGenerate({ dest: dest.trim(), from: from.trim(), startDate, endDate, budget, travelers, styles, styleLabels });
+    onGenerate({ dest: dest.trim(), from: from.trim(), startDate, endDate, budget, travelers, styles, styleLabels, transport, flag: destFlag });
   };
 
   useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
@@ -240,17 +280,19 @@ function PlanForm({ onGenerate, error, initial }) {
             />
             {showFromSugg && filteredFrom.length > 0 && (
               <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 100, background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 8px 28px rgba(12,68,124,0.14)', border: `1px solid ${C.borderSoft}` }}>
-                {filteredFrom.slice(0, 6).map(d => (
-                  <div key={d.code} onMouseDown={() => { setFrom(`${d.name} (${d.code})`); setShowFromSugg(false); }}
+                {filteredFrom.map(d => (
+                  <div key={d.key} onMouseDown={() => { setFrom(d.value); setShowFromSugg(false); }}
                     style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
                     onMouseEnter={e => e.currentTarget.style.background = C.sky}
                     onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(55,138,221,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 10, color: C.ocean }}>{d.code}</span>
+                      {d.code
+                        ? <span style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 10, color: C.ocean }}>{d.code}</span>
+                        : <span style={{ fontSize: 16 }}>{d.badge}</span>}
                     </div>
-                    <div>
-                      <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 13, color: C.navy }}>{d.name}</div>
-                      <div style={{ fontFamily: C.fb, fontSize: 11, color: C.fg3 }}>{d.hint}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 13, color: C.navy }}>{d.title}</div>
+                      <div style={{ fontFamily: C.fb, fontSize: 11, color: C.fg3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.sub}</div>
                     </div>
                   </div>
                 ))}
@@ -269,7 +311,7 @@ function PlanForm({ onGenerate, error, initial }) {
               </span>
               <input
                 value={dest}
-                onChange={e => { setDest(e.target.value); setShowSugg(true); setFormError(''); }}
+                onChange={e => { setDest(e.target.value); setDestFlag(''); setShowSugg(true); setFormError(''); }}
                 onFocus={() => setShowSugg(true)}
                 onBlur={() => setTimeout(() => setShowSugg(false), 150)}
                 placeholder="Where do you want to go?"
@@ -283,18 +325,18 @@ function PlanForm({ onGenerate, error, initial }) {
                 boxShadow: '0 8px 28px rgba(12,68,124,0.14)',
                 border: `1px solid ${C.borderSoft}`,
               }}>
-                {filtered.slice(0, 6).map(d => (
+                {filtered.map(d => (
                   <div
-                    key={d.name}
-                    onMouseDown={() => { setDest(d.name); setShowSugg(false); }}
+                    key={d.key}
+                    onMouseDown={() => { setDest(d.value); setDestFlag(d.flag || ''); setShowSugg(false); }}
                     style={{ padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
                     onMouseEnter={e => e.currentTarget.style.background = C.sky}
                     onMouseLeave={e => e.currentTarget.style.background = '#fff'}
                   >
-                    <span style={{ fontSize: 22 }}>{d.flag}</span>
-                    <div>
-                      <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 14, color: C.navy }}>{d.name}</div>
-                      <div style={{ fontFamily: C.fb, fontSize: 12, color: C.fg3 }}>{d.hint}</div>
+                    <span style={{ fontSize: 22 }}>{d.badge}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 14, color: C.navy }}>{d.title}</div>
+                      <div style={{ fontFamily: C.fb, fontSize: 12, color: C.fg3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.sub}</div>
                     </div>
                   </div>
                 ))}
@@ -373,6 +415,30 @@ function PlanForm({ onGenerate, error, initial }) {
             <span style={{ fontFamily: C.fb, fontSize: 14, color: C.fg3 }}>
               {travelers === 1 ? '1 traveler' : `${travelers} travelers`}
             </span>
+          </div>
+        </div>
+
+        {/* How are you travelling? */}
+        <div>
+          <label style={labelStyle}>How are you travelling?</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {TRANSPORT_OPTIONS.map(t => {
+              const on = transport === t.id;
+              return (
+                <button key={t.id} onClick={() => setTransport(t.id)} aria-pressed={on} style={{
+                  padding: '8px 16px', borderRadius: 99,
+                  border: `1.5px solid ${on ? C.ocean : C.borderDefault}`,
+                  background: on ? 'rgba(55,138,221,0.10)' : '#fff',
+                  color: on ? C.ocean : C.fg2,
+                  fontFamily: C.fd, fontWeight: 600, fontSize: 13,
+                  cursor: 'pointer', transition: 'all 140ms',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <Icon name={t.icon} size={13} color={on ? C.ocean : C.fg3} />
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 

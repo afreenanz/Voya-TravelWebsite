@@ -7,7 +7,7 @@ fs.mkdirSync(out, { recursive: true });
 
 const PAGES = [
   ['landing', '/'], ['login', '/login'], ['signup', '/login?mode=signup'], ['404', '/does-not-exist'],
-  ...(token ? [['app', '/app'], ['plan', '/app/plan'], ['trips', '/app/trips'], ['explore', '/app/explore'], ['profile', '/app/profile']] : []),
+  ...(token ? [['app', '/app'], ['plan', '/app/plan'], ['trips', '/app/trips'], ['explore', '/app/explore'], ['profile', '/app/profile'], ['settings', '/app/settings']] : []),
 ];
 const VIEWPORTS = [['desktop', { width: 1440, height: 900 }], ['mobile', { width: 375, height: 812 }]];
 

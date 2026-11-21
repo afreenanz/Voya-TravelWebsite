@@ -111,11 +111,19 @@ function DayCard({ dayData, index }) {
 }
 
 // ─── Cost Breakdown Card ──────────────────────────────────────
-function CostBreakdownCard({ breakdown, onProceed }) {
+// How the traveller gets there decides the label/icon of the first cost line.
+const TRANSPORT_COST_LINE = {
+  flight: { icon: 'plane', label: 'Flights' }, train: { icon: 'train-front', label: 'Train tickets' },
+  bus: { icon: 'bus', label: 'Bus tickets' }, car: { icon: 'car', label: 'Fuel & tolls' },
+  any: { icon: 'plane', label: 'Getting there' },
+};
+
+function CostBreakdownCard({ breakdown, summary, transport, onProceed }) {
   if (!breakdown) return null;
+  const travelLine = TRANSPORT_COST_LINE[transport] || TRANSPORT_COST_LINE.flight;
 
   const rows = [
-    { icon: 'plane',        label: 'Flights',          data: breakdown.flights },
+    { icon: travelLine.icon, label: travelLine.label,  data: breakdown.flights },
     { icon: 'building-2',   label: 'Accommodation',    data: breakdown.accommodation },
     { icon: 'utensils',     label: 'Food & Dining',    data: breakdown.food },
     { icon: 'ticket',       label: 'Activities',       data: breakdown.activities },
@@ -159,10 +167,19 @@ function CostBreakdownCard({ breakdown, onProceed }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <div>
             <div style={{ fontFamily: C.fb, fontSize: 12, color: C.fg3, marginBottom: 3 }}>Total trip cost</div>
-            <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 30, color: C.navy, letterSpacing: '-0.02em' }}>{breakdown.total}</div>
+            <div data-testid="trip-total" style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 30, color: C.navy, letterSpacing: '-0.02em' }}>{breakdown.total}</div>
+            {summary && summary.budget_formatted && (
+              <div data-testid="budget-diff" style={{ fontFamily: C.fb, fontWeight: 600, fontSize: 13, marginTop: 4,
+                color: summary.over_budget ? C.danger : C.success }}>
+                {summary.over_budget
+                  ? `${summary.remaining_formatted.replace('-', '')} over your ${summary.budget_formatted} budget`
+                  : summary.remaining === 0 ? `Exactly your ${summary.budget_formatted} budget`
+                  : `${summary.remaining_formatted} under your ${summary.budget_formatted} budget`}
+              </div>
+            )}
           </div>
           <div style={{ fontFamily: C.fb, fontSize: 12, color: C.fg3, textAlign: 'right', maxWidth: 180, lineHeight: 1.5 }}>
-            AI estimate for your dates. Check live prices before you book.
+            Each line is a realistic AI estimate; the total is added up by Voya. Check live prices before you book.
           </div>
         </div>
         <button
@@ -571,6 +588,8 @@ function ItineraryView({ trip, formData, onBack, isSaved }) {
         {/* Cost breakdown + proceed */}
         <CostBreakdownCard
           breakdown={displayTrip.costBreakdown}
+          summary={displayTrip.budgetSummary}
+          transport={displayTrip.transport}
           onProceed={() => setShowBooking(true)}
         />
 

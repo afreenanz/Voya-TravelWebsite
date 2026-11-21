@@ -32,6 +32,15 @@ CATEGORY_ICON = {"sightseeing": "camera", "culture": "landmark", "food": "utensi
                  "nature": "compass", "adventure": "compass", "shopping": "shopping-bag", "nightlife": "music",
                  "relaxation": "sun", "transport": "car", "accommodation": "building-2"}
 PACE_ACTIVITIES = {"relaxed": "3-4", "balanced": "4-5", "packed": "5-6"}
+# How the traveller gets to the destination. The cost always goes in the
+# "flights" category key (kept for the existing UI); only its label changes.
+TRANSPORT_MODES = {
+    "any":    ("Getting there", "choose the most sensible mode for this route (flight, train, bus or car) and name it in cost_notes.flights"),
+    "flight": ("Flights", "by flight, round trip, economy unless the budget clearly allows more"),
+    "train":  ("Train tickets", "by train, round trip, a reserved class that suits the budget"),
+    "bus":    ("Bus tickets", "by bus, round trip (overnight/AC sleeper where sensible)"),
+    "car":    ("Fuel & tolls", "by car (self-drive or own car): fuel and tolls for the round trip"),
+}
 MAX_DAYS = 14
 MAX_VERIFY_LOOKUPS = 40
 SKIP_VERIFY_PREFIXES = ("check-in", "check in", "check-out", "check out", "checkout", "arrival", "arrive",
@@ -144,8 +153,10 @@ def _verification_stats(days):
 
 
 def _budget_for(itin, estimates):
+    mode = itin.get("transport") if itin.get("transport") in TRANSPORT_MODES else "any"
     res = budget_tool.calculate_budget(estimates, total_budget=itin.get("budget") or None, days=len(itin["days"]),
-                                       travelers=itin.get("travelers") or 1, currency=itin.get("currency") or "INR")
+                                       travelers=itin.get("travelers") or 1, currency=itin.get("currency") or "INR",
+                                       labels={"flights": TRANSPORT_MODES[mode][0]})
     if res["status"] != "ok":
         raise ItineraryError(res["message"])
     itin["cost_estimates"] = estimates
@@ -183,7 +194,8 @@ TRIP
 - Dates: {p['start_date']} to {p['end_date']} ({num_days} days)
 - Travellers: {p['travelers']}
 - Total budget: {p.get('budget') or 'not specified — keep it sensible mid-range'} (currency {currency})
-- Departing from: {p.get('from_city') or 'not specified (set flights to 0)'}
+- Departing from: {p.get('from_city') or "not specified (set cost_estimates.flights to 0)"}
+- Getting there: {TRANSPORT_MODES[p.get('transport') or 'any'][1]}. Put this cost in cost_estimates.flights.
 - Interests: {', '.join(p.get('interests') or []) or 'general sightseeing'}
 - Pace: {p['pace']} → {PACE_ACTIVITIES[p['pace']]} activities per day
 
@@ -201,7 +213,10 @@ RULES
 2. Group nearby places on the same day; keep travel between stops realistic.
 3. Use real, specific place names. Do NOT invent opening hours, exact prices or availability.
 4. estimated_cost and cost_estimates are ESTIMATES in {currency} for all {p['travelers']} traveller(s); integers only.
-5. Do NOT compute totals — Voya calculates them. Aim for the sum of cost_estimates to fit the budget.
+5. Estimate REALISTIC current prices for this destination, season, travel mode and number of travellers.
+   Do NOT bend the numbers to match the budget: pick cheaper options where sensible, but if a realistic trip
+   costs more or less than the budget, keep the realistic numbers — Voya shows the difference to the traveller.
+   Do NOT compute totals — Voya adds them up.
 6. Allowed icons: {', '.join(ICONS)}
 
 OUTPUT FORMAT
@@ -257,16 +272,19 @@ def _check_params(destination, start_date, end_date, travelers, pace):
 # ── Tool D: generate ────────────────────────────────────────────────────────
 def generate_itinerary(*, destination, start_date, end_date, travelers=2, budget=None, interests=None,
                        pace="balanced", from_city="", user_context="", places=None, weather=None,
-                       dest=None, ai_call=call_openrouter, verify=True, time_budget_s=105):
+                       dest=None, ai_call=call_openrouter, verify=True, time_budget_s=105, transport="any"):
     """→ {"status": "ok", "itinerary": {...}} or {"status": "error"|"unavailable", "message"}"""
     deadline = time.monotonic() + time_budget_s
     try:
         destination, num_days, pace = _check_params(destination, start_date, end_date, travelers, pace)
         currency = budget_tool.parse_amount(budget)[1] if budget else "INR"
+        transport = (transport or "any").lower()
+        if transport not in TRANSPORT_MODES:
+            raise ItineraryError("Travel mode must be one of: " + ", ".join(TRANSPORT_MODES) + ".")
     except (ItineraryError, budget_tool.BudgetError) as e:
         return {"status": "error", "message": str(e)}
 
-    params = {"destination": destination, "start_date": start_date, "end_date": end_date, "travelers": travelers,
+    params = {"transport": transport, "destination": destination, "start_date": start_date, "end_date": end_date, "travelers": travelers,
               "budget": budget or "", "from_city": _s(from_city, 120), "interests": [_s(i, 60) for i in interests or []][:10],
               "pace": pace}
     weather_text = None

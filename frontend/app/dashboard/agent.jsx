@@ -193,6 +193,7 @@ function AIAssistant() {
     const out = res.result;
     if (out.conversation_id) { setConvId(out.conversation_id); writeConvId(out.conversation_id); }
     if (out.itinerary_changed && out.itinerary) { setDraft(out.itinerary); setSaved(Boolean(out.itinerary.saved_trip_id)); }
+    if ((out.steps || []).some(st => st.tool === 'generate_itinerary')) window.dispatchEvent(new Event('voya:searches-changed'));
     if (out.itinerary && out.itinerary.saved_trip_id) setSaved(true);
     setMsgs(m => [...m, {
       r: 'voya', t: out.reply, steps: (out.steps || []).filter(s => s.tool !== 'understand'),

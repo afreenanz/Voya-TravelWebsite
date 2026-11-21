@@ -1,7 +1,6 @@
 """Unit tests for the OpenRouter call (no network: requests.post is faked)."""
 import pytest
 
-from backend import app as voya
 from backend.services import ai
 
 
@@ -56,11 +55,3 @@ def test_ai_errors_are_reported(monkeypatch, response, error):
     monkeypatch.setattr(ai.requests, "post", lambda *a, **k: response)
     with pytest.raises(ai.AIError, match=error):
         ai.call_openrouter([{"role": "user", "content": "hi"}], max_tokens=10, timeout=5)
-
-
-def test_validate_itinerary_enforces_day_count():
-    day = {"title": "D", "activities": [{"time": "09:00", "name": "Beach"}]}
-    data = {"days": [day] * 6, "cost_breakdown": {"total": "₹50,000"}}
-    assert len(voya.validate_itinerary(data, "Goa", "₹50,000", "", num_days=5)["days"]) == 5   # extra trimmed
-    with pytest.raises(ValueError, match="only 6 of 7 days"):
-        voya.validate_itinerary(data, "Goa", "₹50,000", "", num_days=7)                       # missing → retry

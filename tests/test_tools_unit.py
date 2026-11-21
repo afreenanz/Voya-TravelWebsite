@@ -355,3 +355,62 @@ def test_modify_budget_only_needs_no_ai(base_itin):
 def test_modify_needs_an_itinerary_and_an_instruction(base_itin):
     assert itinerary.modify_itinerary({}, "x", ai_call=fake_ai())["status"] == "error"
     assert itinerary.modify_itinerary(base_itin, "  ", ai_call=fake_ai())["status"] == "error"
+
+
+# ── Travel mode ─────────────────────────────────────────────────────────────
+@pytest.mark.parametrize("mode, label, phrase", [
+    ("flight", "Flights", "by flight"), ("train", "Train tickets", "by train"),
+    ("bus", "Bus tickets", "by bus"), ("car", "Fuel & tolls", "by car"), ("any", "Getting there", "most sensible mode"),
+])
+def test_travel_mode_shapes_prompt_and_cost_label(mode, label, phrase):
+    ai = fake_ai(_plan(3))
+    r = itinerary.generate_itinerary(**GEN, ai_call=ai, transport=mode)
+    assert r["status"] == "ok" and r["itinerary"]["transport"] == mode
+    assert phrase in ai.calls[0]
+    flights = next(c for c in r["itinerary"]["budget_summary"]["categories"] if c["key"] == "flights")
+    assert flights["label"] == label
+
+
+def test_invalid_travel_mode_rejected():
+    r = itinerary.generate_itinerary(**GEN, ai_call=fake_ai(), transport="teleport")
+    assert r["status"] == "error" and "Travel mode" in r["message"]
+
+
+def test_modify_keeps_travel_mode_label(base_itin):
+    base_itin["transport"] = "bus"
+    r = itinerary.modify_itinerary(base_itin, "", new_budget="₹50,000", ai_call=fake_ai(), verify=False)
+    assert next(c for c in r["itinerary"]["budget_summary"]["categories"] if c["key"] == "flights")["label"] == "Bus tickets"
+
+
+# ── Place autocomplete ──────────────────────────────────────────────────────
+def test_autocomplete_destination_prefers_photon_and_dedupes(monkeypatch):
+    item = lambda name, cc, kind="city", detail="": {"name": name, "detail": detail, "country_code": cc, "flag": geo.flag_emoji(cc), "type": kind}
+    monkeypatch.setattr(geo, "_photon", lambda t: [item("Santorini", "gr", "other", "Aegean, Greece"), item("Santorini", "gr", "other")])
+    monkeypatch.setattr(geo, "_geoapify", lambda t, airports_only=False: [item("Binangonan", "ph")])
+    r = geo.autocomplete("santorini")
+    assert [x["name"] for x in r] == ["Santorini", "Binangonan"] and r[0]["flag"] == "🇬🇷"
+
+
+def test_autocomplete_departure_puts_airports_first(monkeypatch):
+    airport = {"name": "Kempegowda International Airport", "detail": "Karnataka, India", "country_code": "in", "flag": "🇮🇳", "type": "airport"}
+    city = {"name": "Bengaluru", "detail": "Karnataka, India", "country_code": "in", "flag": "🇮🇳", "type": "city"}
+    monkeypatch.setattr(geo, "_photon", lambda t: [city])
+    monkeypatch.setattr(geo, "_geoapify", lambda t, airports_only=False: [airport] if airports_only else [])
+    assert [x["type"] for x in geo.autocomplete("blr airport", "departure")] == ["airport", "city"]
+
+
+def test_autocomplete_survives_one_source_failing(monkeypatch):
+    def down(*a, **k):
+        raise common.ToolUnavailable("Place search did not respond in time")
+    monkeypatch.setattr(geo, "_photon", down)
+    monkeypatch.setattr(geo, "_geoapify", lambda t, airports_only=False: [] if airports_only else [
+        {"name": "Goa", "detail": "India", "country_code": "in", "flag": "🇮🇳", "type": "state"}])
+    assert [x["name"] for x in geo.autocomplete("goa")] == ["Goa"]
+    monkeypatch.setattr(geo, "_geoapify", down)
+    with pytest.raises(common.ToolUnavailable):
+        geo.autocomplete("goa")
+    assert geo.autocomplete("g") == []          # too short: no lookup at all
+
+
+def test_flag_emoji():
+    assert geo.flag_emoji("IN") == "🇮🇳" and geo.flag_emoji("") == "📍"

@@ -36,7 +36,7 @@ function buildTripFromApiResponse(apiData, formInputData) {
     id: null,  // not saved yet
     destination:   apiData.destination,
     cities:        apiData.cities || meta.cities || apiData.destination,
-    flag:          meta.flag || lookupFlag(apiData.destination) || '✈️',
+    flag:          (formInputData && formInputData.flag) || meta.flag || lookupFlag(apiData.destination) || '✈️',
     budget:        formInputData.budget,
     days:          itinerary.length,
     startDate:     formInputData.startDate,   // ISO YYYY-MM-DD; formatted at render
@@ -47,6 +47,8 @@ function buildTripFromApiResponse(apiData, formInputData) {
     gradient:      meta.gradient || 'linear-gradient(160deg,#6FAAEA 0%,#378ADD 55%,#07304F 100%)',
     itinerary,
     costBreakdown: apiData.cost_breakdown || null,
+    budgetSummary: apiData.budget_summary || null,
+    transport:     apiData.transport || '',
   };
 }
 
@@ -189,6 +191,7 @@ function PlanTripApp() {
         travelers:    data.travelers,
         start_date:   data.startDate,
         end_date:     data.endDate,
+        transport:    data.transport || 'any',
       },
     });
 

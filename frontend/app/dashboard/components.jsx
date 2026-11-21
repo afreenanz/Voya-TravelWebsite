@@ -162,6 +162,7 @@ const NAV_ITEMS = [
   { id: 'trips',   icon: 'map',          label: 'My Trips',    href: '/app/trips' },
   { id: 'explore', icon: 'globe-2',      label: 'Explore',     href: '/app/explore' },
   { id: 'profile', icon: 'user-round',   label: 'Profile',     href: '/app/profile' },
+  { id: 'settings', icon: 'settings',    label: 'Settings',    href: '/app/settings' },
 ];
 
 // onNav(id) may handle a click in-page (return true) instead of navigating.
@@ -217,7 +218,7 @@ function VSidebar({ active, onNav, name }) {
             fontFamily: C.fd, fontWeight: 700, fontSize: 13.5, color: C.navy,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{userName}</div>
-          <div style={{ fontFamily: C.fb, fontSize: 11, color: C.ocean, fontWeight: 600 }}>Free plan</div>
+          <a href="/app/profile" style={{ fontFamily: C.fb, fontSize: 11, color: C.ocean, fontWeight: 600, textDecoration: 'none' }}>View profile</a>
         </div>
         <button onClick={() => Voya.logout()} title="Log out" aria-label="Log out" style={{
           width: 28, height: 28, borderRadius: 8, border: 0,

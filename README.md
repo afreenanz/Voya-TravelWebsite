@@ -20,12 +20,13 @@ _The itinerary and dashboard screenshots show real AI output from the live site.
 
 - **AI itineraries:** day-by-day plans with real hotels, restaurants and landmarks, plus an estimated budget breakdown (flights, stay, food, activities, transport, misc).
 - **Personalised:** your home airport, budget tier and travel style from your profile shape every plan.
+- **Plan Trip form:** search any destination or departure city/airport worldwide, choose how you travel (flight, train, bus, car), and get realistic costs added up in code, shown as "₹X under/over your budget".
+- **Profile & Settings:** Profile is your travel summary (trips, stats, passport stamps). Settings holds Edit profile, Travel preferences, Recent activity and Account.
 - **My Trips:** save to wishlist, mark as upcoming ("Book it all") or completed, delete, reopen any itinerary.
 - **AI travel agent:** on the dashboard, ask in plain language ("Plan a five-day trip to Bali under ₹60,000, I like beaches and cafes"). You watch it pick and run tools live: places search, real weather forecast, itinerary, budget. Then you change the plan in conversation ("make day two less hectic") and save it with one click.
 - **Memory:** Voya remembers lasting preferences you mention (interests, pace, diet…) and your past trips, and uses them next time. You can view, edit or delete them on your Profile.
 - **Honest data:** places verified against OpenStreetMap are marked as verified, weather comes only from a real forecast, and budget totals are calculated in code. Anything the AI estimated is labelled as an estimate.
 - **Accounts:** email + password, or a passwordless sign-in link sent by email. Google sign-in is planned.
-- **Profile:** photo upload, plus stats and achievements computed from your real trips.
 - Works on desktop and mobile.
 
 ## Tech stack
