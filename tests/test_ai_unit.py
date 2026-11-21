@@ -2,6 +2,7 @@
 import pytest
 
 from backend import app as voya
+from backend.services import ai
 
 
 class FakeResponse:
@@ -22,27 +23,27 @@ def captured(monkeypatch):
         calls.append(json)
         return FakeResponse()
 
-    monkeypatch.setattr(voya, "OPENROUTER_KEY", "test-key")
-    monkeypatch.setattr(voya.requests, "post", fake_post)
+    monkeypatch.setattr(ai, "OPENROUTER_KEY", "test-key")
+    monkeypatch.setattr(ai.requests, "post", fake_post)
     return calls
 
 
 def test_itinerary_calls_use_main_model_first_with_fallbacks(captured):
-    voya.call_openrouter([{"role": "user", "content": "hi"}], max_tokens=10, timeout=5, json_mode=True)
+    ai.call_openrouter([{"role": "user", "content": "hi"}], max_tokens=10, timeout=5, json_mode=True)
     p = captured[0]
-    assert p["model"] == voya.OPENROUTER_MODEL
-    assert p["models"][0] == voya.OPENROUTER_MODEL and len(p["models"]) <= 3
+    assert p["model"] == ai.OPENROUTER_MODEL
+    assert p["models"][0] == ai.OPENROUTER_MODEL and len(p["models"]) <= 3
     assert len(set(p["models"])) == len(p["models"])          # no duplicates
     assert p["reasoning"] == {"enabled": False}
     assert p["response_format"] == {"type": "json_object"}
 
 
 def test_chat_calls_use_chat_model_first(captured):
-    voya.call_openrouter([{"role": "user", "content": "hi"}], max_tokens=10, timeout=5,
-                         model=voya.OPENROUTER_CHAT_MODEL)
+    ai.call_openrouter([{"role": "user", "content": "hi"}], max_tokens=10, timeout=5,
+                         model=ai.OPENROUTER_CHAT_MODEL)
     p = captured[0]
-    assert p["models"][0] == voya.OPENROUTER_CHAT_MODEL
-    assert voya.OPENROUTER_MODEL in p["models"]                # main model is a fallback for chat
+    assert p["models"][0] == ai.OPENROUTER_CHAT_MODEL
+    assert ai.OPENROUTER_MODEL in p["models"]                # main model is a fallback for chat
     assert "response_format" not in p
 
 
@@ -51,10 +52,10 @@ def test_chat_calls_use_chat_model_first(captured):
     (FakeResponse(content="   "), "empty response"),
 ])
 def test_ai_errors_are_reported(monkeypatch, response, error):
-    monkeypatch.setattr(voya, "OPENROUTER_KEY", "test-key")
-    monkeypatch.setattr(voya.requests, "post", lambda *a, **k: response)
-    with pytest.raises(voya.AIError, match=error):
-        voya.call_openrouter([{"role": "user", "content": "hi"}], max_tokens=10, timeout=5)
+    monkeypatch.setattr(ai, "OPENROUTER_KEY", "test-key")
+    monkeypatch.setattr(ai.requests, "post", lambda *a, **k: response)
+    with pytest.raises(ai.AIError, match=error):
+        ai.call_openrouter([{"role": "user", "content": "hi"}], max_tokens=10, timeout=5)
 
 
 def test_validate_itinerary_enforces_day_count():

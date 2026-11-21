@@ -54,7 +54,8 @@ More detail: [`VOYA_STUDY_GUIDE.md`](VOYA_STUDY_GUIDE.md).
 
 ```
 backend/app.py          Flask app: page routes + /api
-backend/services/       Reusable services (memory.py: preferences + conversation history)
+backend/services/       memory.py (preferences + conversation history), ai.py (OpenRouter client), trips.py (save trip)
+backend/tools/          Agent tools: places, weather, budget, itinerary (generate/modify), geo verification
 tests/                  pytest suite (unit + integration against Supabase)
 frontend/landing/       Landing page          → /
 frontend/auth/          Login/signup + OAuth  → /login, /auth/callback
@@ -94,7 +95,7 @@ python backend/app.py     # → http://localhost:5001
 | `OPENROUTER_MODEL` | Optional. Model for itineraries; defaults to `nvidia/nemotron-3-ultra-550b-a55b:free` |
 | `OPENROUTER_CHAT_MODEL` | Optional. Faster model tried first for chat; defaults to `nvidia/nemotron-3.5-super-vl:free` |
 | `OPENROUTER_FALLBACK_MODELS` | Optional, comma-separated backups used when the main model is rate-limited (default `google/gemma-4-31b-it:free`) |
-| `GEOAPIFY_API_KEY` | Not used yet; reserved for the upcoming places search (free tier) |
+| `GEOAPIFY_API_KEY` | https://myprojects.geoapify.com (free tier). Places search + place verification for the agent tools |
 | `APP_SECRET_KEY` | `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `APP_BASE_URL` | `http://localhost:5001` locally, your production URL on Vercel |
 
@@ -110,7 +111,10 @@ Then run each file in [`supabase/migrations/`](supabase/migrations/) in order. `
 pip install -r requirements-dev.txt
 python -m pytest            # unit tests + integration tests against the Supabase project in .env
 python -m pytest -m "not integration"   # unit tests only, no network
+python -m pytest -m live                # real Geoapify + Open-Meteo calls (no AI)
 ```
+
+Tests never call the AI: OpenRouter's free tier allows 50 requests/day per account, shared with the live site, so the AI is faked in tests.
 
 Integration tests create throwaway `@example.com` users and delete everything they created. They're skipped automatically if `.env` or the migration is missing.
 

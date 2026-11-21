@@ -18,4 +18,8 @@ entrypoint = "backend.app:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: talks to the real Supabase project from .env"]
+markers = [
+    "integration: talks to the real Supabase project from .env",
+    "live: calls real external APIs (Geoapify, Open-Meteo); run with -m live",
+]
+addopts = "-m 'not live'"

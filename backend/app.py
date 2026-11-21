@@ -19,17 +19,19 @@ from functools import wraps
 from urllib.parse import urlencode
 
 import jwt
-import requests
 from dotenv import load_dotenv
 from flask import Flask, g, jsonify, redirect, request, send_from_directory
 from supabase import ClientOptions, create_client
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash, generate_password_hash
 
-try:  # package import on Vercel / tests ("backend.app"); script import for `python backend/app.py`
-    from backend.services import memory
-except ImportError:  # pragma: no cover
-    from services import memory
+if __package__ in (None, ""):  # `python backend/app.py`: make `backend.*` importable
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from backend.services import memory  # noqa: E402
+from backend.services.trips import DEFAULT_GRADIENT  # noqa: E402
+from backend.tools.itinerary import ICONS as ALLOWED_ICONS  # noqa: E402
+from backend.services.ai import AIError, OPENROUTER_CHAT_MODEL, call_openrouter, parse_json, user_message  # noqa: E402
 
 mimetypes.add_type("application/javascript", ".jsx")
 
@@ -46,20 +48,9 @@ load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 SUPABASE_URL      = re.sub(r"/rest/v1/?$", "", (os.getenv("SUPABASE_URL") or "").strip().rstrip("/"))
 SUPABASE_KEY      = (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or "").strip()
-OPENROUTER_KEY    = (os.getenv("OPENROUTER_API_KEY") or "").strip()
-OPENROUTER_MODEL  = (os.getenv("OPENROUTER_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b:free").strip()
-# Chat replies are short, so they use a fast model first; itineraries use
-# OPENROUTER_MODEL (best at long structured JSON). Free models are often
-# rate-limited, so every call sends the other models as fallbacks and
-# OpenRouter switches automatically (at most 3 models per request).
-OPENROUTER_CHAT_MODEL = (os.getenv("OPENROUTER_CHAT_MODEL") or "nvidia/nemotron-3.5-super-vl:free").strip()
-OPENROUTER_FALLBACK_MODELS = [m.strip() for m in (
-    os.getenv("OPENROUTER_FALLBACK_MODELS") or "google/gemma-4-31b-it:free").split(",") if m.strip()]
-AI_MODEL_POOL = list(dict.fromkeys([OPENROUTER_MODEL, OPENROUTER_CHAT_MODEL, *OPENROUTER_FALLBACK_MODELS]))
 APP_SECRET_KEY    = (os.getenv("APP_SECRET_KEY") or "").strip()
 APP_BASE_URL      = (os.getenv("APP_BASE_URL") or "").strip().rstrip("/")
 
-OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
 TOKEN_TTL         = timedelta(days=7)
 TOKEN_ISSUER      = "voya"
 
@@ -76,12 +67,6 @@ VALID_STATUSES = {"planning", "upcoming", "completed", "wishlist"}
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 DATE_RE  = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-ALLOWED_ICONS = [
-    "plane-landing", "plane-takeoff", "building-2", "map-pin", "utensils",
-    "train-front", "bus", "car", "ship", "bike", "landmark", "shopping-bag",
-    "waves", "sunrise", "sunset", "sun", "camera", "coffee", "music",
-    "compass", "fish", "map", "ticket", "moon", "sparkles", "heart",
-]
 ALLOWED_AVATAR_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif"}
 MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
@@ -601,7 +586,6 @@ def api_upload_avatar():
 
 
 # ── API: trips ──────────────────────────────────────────────────────────────
-DEFAULT_GRADIENT = "linear-gradient(160deg,#6FAAEA 0%,#378ADD 55%,#07304F 100%)"
 
 
 def _trip_out(row):
@@ -809,58 +793,6 @@ def api_keepalive():
 
 
 # ── AI ──────────────────────────────────────────────────────────────────────
-class AIError(Exception):
-    pass
-
-
-def call_openrouter(messages, *, max_tokens, timeout, json_mode=False, temperature=0.8, model=None):
-    _require_config(("OPENROUTER_API_KEY", OPENROUTER_KEY))
-    primary = model or OPENROUTER_MODEL
-    payload = {
-        "model": primary,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-    models = [primary, *[m for m in AI_MODEL_POOL if m != primary]][:3]
-    if len(models) > 1:
-        payload["models"] = models
-    # Free models are often "reasoning" models: hidden thinking can eat the whole
-    # token budget (empty answer) and doubles latency. Voya doesn't need it.
-    payload["reasoning"] = {"enabled": False}
-    if json_mode:
-        payload["response_format"] = {"type": "json_object"}
-    try:
-        res = requests.post(
-            OPENROUTER_URL,
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_KEY}",
-                "Content-Type": "application/json",
-                "X-Title": "Voya",
-                **({"HTTP-Referer": APP_BASE_URL} if APP_BASE_URL else {}),
-            },
-            json=payload,
-            timeout=timeout,
-        )
-    except requests.Timeout:
-        raise AIError("timeout")
-    except requests.RequestException as e:
-        raise AIError(f"network: {e}")
-    if res.status_code != 200:
-        log.warning("OpenRouter HTTP %s: %s", res.status_code, res.text[:300])
-        raise AIError(f"http {res.status_code}")
-    try:
-        data = res.json()
-        content = data["choices"][0]["message"]["content"]
-    except (ValueError, KeyError, IndexError, TypeError):
-        raise AIError("malformed response")
-    if data.get("model") and data["model"] != primary:
-        log.info("OpenRouter answered with fallback model %s", data["model"])
-    if not content or not content.strip():
-        raise AIError("empty response")
-    return content.strip()
-
-
 CHAT_SYSTEM_PROMPT = """You are Voya AI, a warm and knowledgeable travel companion built into the Voya trip-planning app. You help users:
 - Discover destinations and the best times to visit
 - Plan trips with budget tips and itinerary ideas
@@ -892,7 +824,7 @@ def api_chat():
         reply = call_openrouter(messages, max_tokens=400, timeout=CHAT_TIMEOUT_S, model=OPENROUTER_CHAT_MODEL)
     except AIError as e:
         log.warning("chat failed: %s", e)
-        raise ApiError("Voya AI couldn't answer right now. Please try again in a moment.", 502)
+        raise ApiError(user_message(e), 503 if str(e) == "daily limit" else 502)
     return ok(reply=reply)
 
 
@@ -977,15 +909,7 @@ OUTPUT — return exactly this JSON structure, nothing else:
 }}"""
 
 
-def _parse_json(raw):
-    raw = raw.strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[-1]
-        raw = raw.rsplit("```", 1)[0]
-    start, end = raw.find("{"), raw.rfind("}")
-    if start == -1 or end <= start:
-        raise ValueError("no JSON object found")
-    return json.loads(raw[start:end + 1])
+_parse_json = parse_json
 
 
 def _clean_str(value, max_len=300):
@@ -1106,12 +1030,11 @@ def api_generate_trip():
                                   timeout=min(AI_ATTEMPT_TIMEOUT_S, remaining))
         except AIError as e:
             log.warning("generate-trip attempt %d failed: %s", attempt, e)
-            if str(e) == "timeout":
-                raise ApiError("Voya AI took too long to respond. Please try again.", 504)
             if str(e) in ("empty response", "malformed response"):
                 last_problem = e
                 continue
-            raise ApiError("Voya AI is unavailable right now. Please try again in a moment.", 502)
+            status = {"timeout": 504, "daily limit": 503}.get(str(e), 502)
+            raise ApiError(user_message(e), status)
         try:
             itinerary = validate_itinerary(_parse_json(raw), destination, budget, travel_style, num_days)
             return ok(itinerary=itinerary)
