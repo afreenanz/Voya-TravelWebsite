@@ -35,6 +35,7 @@ from backend.services.trips import DEFAULT_GRADIENT  # noqa: E402
 from backend.agent import service as agent_service  # noqa: E402
 from backend.tools import geo as geo_tool  # noqa: E402
 from backend.tools import itinerary as itinerary_tool  # noqa: E402
+from backend.tools import photos as photos_tool  # noqa: E402
 from backend.tools import places as places_tool  # noqa: E402
 from backend.tools import weather as weather_tool  # noqa: E402
 from backend.services.ai import AIError, OPENROUTER_CHAT_MODEL, call_openrouter, user_message  # noqa: E402
@@ -607,9 +608,9 @@ def _trip_out(row):
     # Older rows stored only the days array; newer rows store {days, cost_breakdown}.
     if isinstance(stored, dict):
         days, cost = stored.get("days") or [], stored.get("cost_breakdown")
-        summary, transport = stored.get("budget_summary"), stored.get("transport")
+        summary, transport, photo = stored.get("budget_summary"), stored.get("transport"), stored.get("photo")
     else:
-        days, cost, summary, transport = stored, None, None, None
+        days, cost, summary, transport, photo = stored, None, None, None, None
     return {
         "id":            str(row.get("id", "")),
         "destination":   row.get("destination") or "",
@@ -627,6 +628,7 @@ def _trip_out(row):
         "costBreakdown": cost,
         "budgetSummary": summary,
         "transport":     transport or "",
+        "photo":         photo,
         "createdAt":     row.get("created_at") or "",
     }
 
@@ -651,6 +653,7 @@ def api_save_trip():
     transport = text(trip, "transport", max_len=10).lower()
     if transport not in itinerary_tool.TRANSPORT_MODES:
         transport = ""
+    photo = safe_photo(trip.get("photo")) or photos_tool.find_photo(text(trip, "destination", max_len=120))
     if len(json.dumps(days)) > 200_000:
         raise ApiError("This itinerary is too large to save.", 400)
 
@@ -667,7 +670,8 @@ def api_save_trip():
         "travel_style":   text(trip, "travelStyle", max_len=120),
         "status":         status,
         "gradient":       text(trip, "gradient", max_len=200) or DEFAULT_GRADIENT,
-        "itinerary_json": {"days": days, "cost_breakdown": cost, "budget_summary": summary, "transport": transport or None},
+        "itinerary_json": {"days": days, "cost_breakdown": cost, "budget_summary": summary, "transport": transport or None,
+                           "photo": photo},
     }
     res = db().table("trips").insert(row).execute()
     if not res.data:
@@ -881,6 +885,30 @@ def api_agent_confirm():
     return ok(**result)
 
 
+# ── Destination photos ──────────────────────────────────────────────────────
+PHOTO_HOSTS = ("https://commons.wikimedia.org/", "https://upload.wikimedia.org/")
+
+
+def safe_photo(photo):
+    """Accept a client-sent photo only if it points at Wikimedia (never arbitrary URLs)."""
+    if isinstance(photo, dict) and isinstance(photo.get("url"), str) and photo["url"].startswith(PHOTO_HOSTS) \
+            and len(photo["url"]) < 600:
+        credit = photo.get("credit_url") if isinstance(photo.get("credit_url"), str) else ""
+        return {"url": photo["url"], "credit_url": credit if credit.startswith(PHOTO_HOSTS) else "", "source": "Wikimedia Commons"}
+    return None
+
+
+@app.get("/api/photo")
+@require_auth
+def api_photo():
+    """A real photo of a place (for trips saved before photos existed). Cached server-side."""
+    place = (request.args.get("place") or "").strip()[:120]
+    if not place:
+        return ok(photo=None)
+    rate_limit("lookup", g.email)
+    return ok(photo=photos_tool.find_photo(place))
+
+
 # ── Place autocomplete (planner fields) ─────────────────────────────────────
 def _visitor_location():
     """Approximate visitor location from Vercel's edge headers (None locally)."""
@@ -1006,6 +1034,7 @@ def api_generate_trip():
         raise ApiError(res["message"], 503 if "free usage limit" in res["message"] else 502)
     itin = res["itinerary"]
     itin["travel_style"] = travel_style
+    itin["photo"] = photos_tool.find_photo(destination)
     return ok(itinerary=itin)
 
 

@@ -22,6 +22,8 @@ _The itinerary and dashboard screenshots show real AI output from the live site.
 - **Personalised:** your home airport, budget tier and travel style from your profile shape every plan.
 - **Plan Trip form:** search any destination or departure city/airport worldwide, choose how you travel (flight, train, bus, car), and get realistic costs added up in code, shown as "₹X under/over your budget".
 - **Profile & Settings:** Profile is your travel summary (trips, stats, passport stamps). Settings holds Edit profile, Travel preferences, Recent activity and Account.
+- **Real photos:** destinations and trips show real photos of the place (Wikivoyage banners from Wikimedia Commons, credited), with a gradient fallback.
+- **Explore:** 12 ready-made itineraries (real places, costs added up in code) that open in one click; "Customise" starts the planner.
 - **My Trips:** save to wishlist, mark as upcoming ("Book it all") or completed, delete, reopen any itinerary.
 - **AI travel agent:** on the dashboard, ask in plain language ("Plan a five-day trip to Bali under ₹60,000, I like beaches and cafes"). You watch it pick and run tools live: places search, real weather forecast, itinerary, budget. Then you change the plan in conversation ("make day two less hectic") and save it with one click.
 - **Memory:** Voya remembers lasting preferences you mention (interests, pace, diet…) and your past trips, and uses them next time. You can view, edit or delete them on your Profile.
@@ -78,6 +80,7 @@ backend/services/       memory.py (preferences + conversation history), ai.py (O
 backend/agent/          LangGraph travel agent: state, prompts, nodes (guardrails), graph, service
 backend/tools/          Agent tools: places, weather, budget, itinerary (generate/modify), geo verification
 eval/                   Agent evaluation set + runner (real LLM)
+scripts/                build_explore_samples.py → frontend/app/explore/samples.json
 e2e/                    Playwright browser tests + local test server
 tests/                  pytest suite (unit + integration against Supabase)
 frontend/landing/       Landing page          → /

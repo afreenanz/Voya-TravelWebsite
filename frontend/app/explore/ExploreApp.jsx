@@ -74,8 +74,10 @@ const CATEGORIES = [
 ];
 
 // ─── Destination Card ─────────────────────────────────────────────
-function DestinationCard({ pkg }) {
-  const open = () => { window.location.href = `/app/plan?destination=${encodeURIComponent(pkg.destination)}`; };
+function DestinationCard({ pkg, sample }) {
+  // Opens the ready-made itinerary; "Customise" starts the planner for this destination.
+  const open = () => { window.location.href = `/app/plan?sample=${encodeURIComponent(pkg.id)}`; };
+  const customise = () => { window.location.href = `/app/plan?destination=${encodeURIComponent(pkg.destination)}`; };
   const [hv, setHv] = useState(false);
 
   return (
@@ -91,7 +93,8 @@ function DestinationCard({ pkg }) {
       }}>
 
       {/* Thumbnail */}
-      <div style={{ height: 150, background: pkg.gradient, position: 'relative', overflow: 'hidden' }}>
+      <div className="has-photo" style={{ height: 150, background: pkg.gradient, position: 'relative', overflow: 'hidden' }}>
+        <PhotoLayer place={pkg.destination} width={640} />
         <div style={{ position: 'absolute', top: 12, left: 12, background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(8px)', padding: '4px 10px', borderRadius: 99, fontFamily: C.fb, fontWeight: 600, fontSize: 12, color: '#fff' }}>
           {pkg.flag} {pkg.destination}
         </div>
@@ -114,8 +117,16 @@ function DestinationCard({ pkg }) {
         {/* CTA */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: `1px solid ${C.borderSoft}` }}>
           <div>
-            <div style={{ fontFamily: C.fb, fontSize: 11, color: C.fg3 }}>Best for</div>
-            <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 15, color: C.navy }}>{CATEGORIES.find(c => c.id === pkg.category)?.label}</div>
+            <div style={{ fontFamily: C.fb, fontSize: 11, color: C.fg3 }}>
+              {sample ? `${sample.days.length} days · for 2` : 'Best for'}
+            </div>
+            <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 15, color: C.navy }}>
+              {sample ? `${sample.budget_summary.total_formatted} est.` : CATEGORIES.find(c => c.id === pkg.category)?.label}
+            </div>
+            <button onClick={e => { e.stopPropagation(); customise(); }} style={{
+              border: 0, background: 'none', padding: 0, marginTop: 2, cursor: 'pointer',
+              fontFamily: C.fb, fontSize: 12, color: C.ocean, fontWeight: 600,
+            }}>Customise →</button>
           </div>
           <button
             onClick={e => { e.stopPropagation(); open(); }}
@@ -127,8 +138,8 @@ function DestinationCard({ pkg }) {
               boxShadow: '0 6px 18px rgba(239,159,39,0.30)',
               transition: 'all 140ms',
             }}>
-            <Icon name="sparkles" size={13} color="#fff" />
-            Plan this trip
+            <Icon name="map" size={13} color="#fff" />
+            View itinerary
           </button>
         </div>
       </div>
@@ -140,6 +151,13 @@ function DestinationCard({ pkg }) {
 function ExploreApp() {
   const [category, setCategory] = useState('all');
   const [search,   setSearch]   = useState('');
+  const [samples,  setSamples]  = useState({});
+
+  useEffect(() => {   // ready-made itineraries, built by scripts/build_explore_samples.py
+    fetch('/app/explore/samples.json').then(r => r.json()).then(list => {
+      setSamples(Object.fromEntries(list.map(s => [s.id, s])));
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
 
@@ -223,7 +241,7 @@ function ExploreApp() {
             </div>
           ) : (
             <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-              {visible.map(pkg => <DestinationCard key={pkg.id} pkg={pkg} />)}
+              {visible.map(pkg => <DestinationCard key={pkg.id} pkg={pkg} sample={samples[pkg.id]} />)}
             </div>
           )}
         </div>

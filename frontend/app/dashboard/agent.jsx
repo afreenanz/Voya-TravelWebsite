@@ -43,6 +43,10 @@ function ItineraryPreview({ itin, conversationId, saved, saving, onSave }) {
       background: '#fff', border: `1.5px solid ${C.borderDefault}`, borderRadius: 14,
       padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 8,
     }}>
+      <div className="has-photo" style={{ height: 84, margin: '-12px -13px 2px', borderRadius: '13px 13px 0 0', position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(160deg,#6FAAEA 0%,#378ADD 55%,#07304F 100%)' }}>
+        <PhotoLayer place={itin.destination} photo={itin.photo} width={640} overlay="linear-gradient(to bottom, transparent 50%, rgba(7,48,79,0.35))" />
+      </div>
       <div>
         <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 15, color: C.navy }}>
           {itin.days.length}-day {itin.destination} trip

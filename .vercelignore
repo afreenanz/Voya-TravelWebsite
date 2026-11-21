@@ -19,3 +19,4 @@ tests/
 requirements-dev.txt
 eval/
 e2e/
+scripts/

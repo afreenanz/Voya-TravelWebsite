@@ -48,6 +48,7 @@ function buildTripFromApiResponse(apiData, formInputData) {
     itinerary,
     costBreakdown: apiData.cost_breakdown || null,
     budgetSummary: apiData.budget_summary || null,
+    photo:         apiData.photo || null,
     transport:     apiData.transport || '',
   };
 }
@@ -159,8 +160,9 @@ const PATH_FOR_VIEW = { form: '/app/plan', trips: '/app/trips' };
 function PlanTripApp() {
   const params = new URLSearchParams(window.location.search);
   const [agentConv]                       = useState(() => params.get('conversation'));
+  const [sampleId]                        = useState(() => params.get('sample'));
   const [view, setView] = useState(() =>
-    agentConv ? 'opening'
+    (agentConv || sampleId) ? 'opening'
       : (window.location.pathname.replace(/\/$/, '') === '/app/trips' || window.location.hash === '#trips' || params.get('trip'))
         ? 'trips' : 'form');
   const [openTripId]                      = useState(() => params.get('trip'));
@@ -219,6 +221,21 @@ function PlanTripApp() {
     });
   }, [agentConv]);
 
+  // Ready-made itinerary from Explore / the dashboard (no AI call needed).
+  useEffect(() => {
+    if (!sampleId) return;
+    fetch('/app/explore/samples.json').then(r => r.json()).then(list => {
+      const s = list.find(x => x.id === sampleId);
+      if (!s) { setGenError("That sample itinerary isn't available."); setView('form'); return; }
+      const trip = buildTripFromApiResponse(s, {
+        budget: s.budget_summary.total_formatted, startDate: '', endDate: '', travelers: s.travelers,
+        styleLabels: [s.title],
+      });
+      setFormData({ ...trip, isSample: true });
+      setView('itinerary');
+    }).catch(() => { setGenError("Couldn't load that itinerary."); setView('form'); });
+  }, [sampleId]);
+
   const handleSelectTrip = (trip) => {
     setSelectedTrip(trip);
     setView('tripDetail');
@@ -249,7 +266,7 @@ function PlanTripApp() {
       {view === 'itinerary' && (
         <ItineraryView
           formData={formData}
-          onBack={() => (agentConv ? window.location.assign('/app') : setView('form'))}
+          onBack={() => (agentConv ? window.location.assign('/app') : sampleId ? window.location.assign('/app/explore') : setView('form'))}
         />
       )}
       {view === 'trips' && (

@@ -253,7 +253,7 @@ function UpcomingTrips({ trips, error }) {
               width: 160, flexShrink: 0,
               background: trip.gradient || `linear-gradient(160deg,#6FAAEA 0%,${C.ocean} 50%,#07304F 100%)`,
               borderRadius: '20px 0 0 20px', position: 'relative', minHeight: 148, overflow: 'hidden',
-            }}>
+            }} className="has-photo">
               <svg viewBox="0 0 160 148" width="160" height="148" style={{ position: 'absolute', inset: 0, opacity: 0.55 }}>
                 <ellipse cx="80" cy="132" rx="100" ry="24" fill="rgba(0,0,0,0.18)" />
                 <rect x="45" y="82" width="70" height="60" fill="rgba(12,68,124,0.52)" />
@@ -261,6 +261,7 @@ function UpcomingTrips({ trips, error }) {
                 <polygon points="50,70 80,46 110,70" fill="rgba(7,48,79,0.55)" />
                 <rect x="68" y="107" width="24" height="35" rx="3" fill="rgba(4,24,50,0.55)" />
               </svg>
+              <PhotoLayer place={trip.destination} photo={trip.photo} width={480} />
               <div style={{
                 position: 'absolute', top: 12, left: 12,
                 background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(8px)',
@@ -374,6 +375,9 @@ function RecentSearches() {
   );
 }
 
+// Destinations with a ready-made itinerary (see /app/explore/samples.json).
+const SAMPLE_FOR = { bali: 'bali-culture', thailand: 'thailand-beach', dubai: 'dubai-luxury', japan: 'japan-culture', maldives: 'maldives-luxury', switzerland: 'swiss-mountain' };
+
 // ─── Popular Destinations ─────────────────────────────────────
 function PopularDestinations() {
   const dests = [
@@ -457,14 +461,15 @@ function PopularDestinations() {
       />
       <div className="no-scrollbar" style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 4 }}>
         {dests.map(d => (
-          <VCard key={d.name} padding={0} radius={20} onClick={() => { window.location.href = `/app/plan?destination=${encodeURIComponent(d.name)}`; }}
+          <VCard key={d.name} padding={0} radius={20} onClick={() => { window.location.href = `/app/plan?sample=${SAMPLE_FOR[d.name.toLowerCase()]}`; }}
             style={{ minWidth: 178, maxWidth: 178, overflow: 'hidden', flexShrink: 0 }}>
-            <div style={{ height: 130, background: d.g, position: 'relative', overflow: 'hidden' }}>
+            <div className="has-photo" style={{ height: 130, background: d.g, position: 'relative', overflow: 'hidden' }}>
               <svg viewBox="0 0 178 130" width="178" height="130"
                 style={{ position: 'absolute', inset: 0 }}>
                 <ellipse cx="89" cy="118" rx="115" ry="28" fill="rgba(0,0,0,0.14)" />
                 {artworks[d.name]}
               </svg>
+              <PhotoLayer place={d.name} width={480} />
               <div style={{
                 position: 'absolute', top: 10, left: 10,
                 background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(6px)',
@@ -526,11 +531,12 @@ function TravelInspiration() {
       />
       <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
         {items.map(it => (
-          <VCard key={it.title} padding={0} radius={20} onClick={() => { window.location.href = `/app/plan?destination=${encodeURIComponent(it.dest)}`; }} style={{ overflow: 'hidden' }}>
-            <div style={{
-              height: 110, background: it.g, position: 'relative',
+          <VCard key={it.title} padding={0} radius={20} onClick={() => { window.location.href = `/app/plan?sample=${SAMPLE_FOR[it.dest.toLowerCase()]}`; }} style={{ overflow: 'hidden' }}>
+            <div className="has-photo" style={{
+              height: 110, background: it.g, position: 'relative', overflow: 'hidden',
               display: 'flex', alignItems: 'flex-end', padding: 12,
             }}>
+              <PhotoLayer place={it.dest} width={600} />
               <span style={{
                 background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(8px)',
                 padding: '3px 10px', borderRadius: 99,

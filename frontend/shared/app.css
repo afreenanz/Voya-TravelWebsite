@@ -1,3 +1,6 @@
+/* Real photos: content inside a .has-photo container stays above the photo layer. */
+.has-photo > :not([data-testid="place-photo"]):not([style*="position: absolute"]) { position: relative; }
+
 /* app.css — mobile-only layout rules for the signed-in app pages.
  * Nothing here applies above 860px, so the desktop design is unchanged.
  * Components use inline styles, hence the !important overrides. */

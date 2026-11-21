@@ -86,3 +86,15 @@ def test_saved_trip_keeps_budget_summary_and_mode(client, make_user):
     client.post("/api/save-trip", headers=u["headers"], json={"trip": trip})
     t = client.get("/api/get-trips", headers=u["headers"]).json["trips"][0]
     assert t["budgetSummary"]["remaining"] == 2150 and t["transport"] == "train"
+
+
+def test_photo_endpoint_and_saved_photo(client, make_user, monkeypatch):
+    assert client.get("/api/photo?place=Goa").status_code == 401
+    u = make_user()
+    photo = {"url": "https://commons.wikimedia.org/wiki/Special:FilePath/Goa_banner.png?width=1280", "credit_url": "", "source": "Wikimedia Commons"}
+    monkeypatch.setattr(voya.photos_tool, "find_photo", lambda place: photo if place == "Goa" else None)
+    assert client.get("/api/photo?place=Goa", headers=u["headers"]).json["photo"] == photo
+    trip = {"destination": "Goa", "days": 1, "itinerary": [{"day": 1, "activities": [{"name": "Baga Beach"}]}],
+            "photo": {"url": "https://evil.example/x.png"}}                  # rejected → server looks it up instead
+    client.post("/api/save-trip", headers=u["headers"], json={"trip": trip})
+    assert client.get("/api/get-trips", headers=u["headers"]).json["trips"][0]["photo"] == photo

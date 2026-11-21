@@ -219,6 +219,7 @@ Every `/api` response is JSON: `{"success": true, …}` or `{"success": false, "
 | Memory (v2) | `GET/PUT/DELETE /api/preferences`, `DELETE /api/preferences/<key>`, `GET /api/memory/context` | Context = what the agent knows about you |
 | Conversations (v2) | `GET /api/conversations`, `GET/DELETE /api/conversations/<id>` | Owner-only; invalid or foreign id → 404 |
 | Agent (v2, 6/min) | `POST /api/agent/chat` (JSON), `POST /api/agent/stream` (SSE), `POST /api/agent/confirm` | Confirm takes `{conversation_id, action: "save_trip"}` |
+| Photos | `GET /api/photo?place=` (60/min) | A real photo for any place (server-cached); trips also store theirs when saved |
 | Places | `GET /api/places/autocomplete?q=&kind=destination\|departure` (60/min) | Worldwide suggestions for the planner; keeps the Geoapify key server-side |
 | Ops | `GET /api/cron/keepalive` | Daily Vercel cron; optional `CRON_SECRET` |
 
@@ -395,6 +396,17 @@ Every tool returns a status (`ok | partial | unavailable | error`) and **never r
 
 ### Travel preferences card (`profile/Preferences.jsx`, shown in Settings)
 Chips per list (add/remove), pace selector, budget text. **Save**, **Undo changes**, **Forget all** (with confirmation). Uses `GET/PUT/DELETE /api/preferences`.
+
+### Real photos (`PhotoLayer` in `dashboard/components.jsx`, `backend/tools/photos.py`)
+- **Source:** the place's Wikipedia article → its Wikidata item → the **Wikivoyage banner** (property P948, a wide travel photo), falling back to the main image (P18); maps and flags (`.svg`) are skipped. The browser loads it from Wikimedia Commons (`Special:FilePath?width=…`).
+- **Fixed destinations** (landing, dashboard, Explore) use **16 hand-checked photos** stored in code: no lookups at page load. I rejected 4 automatic picks (a lantern close-up, a badly cropped lioness, a marina, a stone calendar) for Mount Fuji, the Masai Mara, Anse Source d'Argent and the Palacio de Bellas Artes.
+- **Any other destination:** looked up once (`/api/photo`, cached a week) and **stored with the trip** when saved. Wikimedia throttles anonymous clients, so a failed lookup simply keeps the gradient: never a broken image.
+- **Safety:** the server only accepts photo URLs on Wikimedia domains (`safe_photo`), so a client can't plant arbitrary links or trackers.
+- **Licensing:** Commons photos are CC-licensed, so the itinerary header and the landing page credit "Wikimedia Commons" with a link.
+
+### Explore: ready-made itineraries
+- `scripts/build_explore_samples.py` holds 12 hand-written plans of real places. It runs them through the **same code as AI plans** (validation, Decimal budget, OpenStreetMap verification) and writes `frontend/app/explore/samples.json`.
+- Clicking a destination (Explore or dashboard) opens `/app/plan?sample=<id>` in the normal itinerary view (flexible dates, save to wishlist works); **Customise** opens the planner prefilled. No AI call, so it's instant and doesn't touch the daily quota.
 
 ### Shared UI and mobile
 `dashboard/components.jsx` is the design system (colours `C`, `VBtn`, `VCard`, `VChip`, `VSidebar` with logout, `VNotice`, `useToast`). `shared/app.css` applies only below 860px: the sidebar becomes a top bar and grids stack. Browser tests check there's no horizontal overflow at 390px.

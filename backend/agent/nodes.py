@@ -13,6 +13,7 @@ from typing import Callable, Optional
 
 from ..services import ai, memory, trips
 from ..tools import itinerary as itinerary_tool
+from ..tools import photos as photos_tool
 from ..tools import places as places_tool
 from ..tools import weather as weather_tool
 from .prompts import ANSWER_SYSTEM, UNDERSTAND_SYSTEM, answer_prompt, understand_prompt
@@ -32,6 +33,7 @@ class Deps:
     get_weather: Callable = field(default=lambda *a, **k: weather_tool.get_weather(*a, **k))
     generate_itinerary: Callable = field(default=lambda *a, **k: itinerary_tool.generate_itinerary(*a, **k))
     modify_itinerary: Callable = field(default=lambda *a, **k: itinerary_tool.modify_itinerary(*a, **k))
+    find_photo: Callable = field(default=lambda *a, **k: photos_tool.find_photo(*a, **k))
     emit: Optional[Callable] = None
 
     def event(self, **ev):
@@ -294,6 +296,7 @@ def execute_tools(state, config):
                     time_budget_s=max(20, _remaining(state) - 12))
                 if res["status"] == "ok":
                     draft, changed = res["itinerary"], True
+                    draft["photo"] = d.find_photo(trip["destination"])
                     v = draft.get("verification") or {}
                     detail = f"{len(draft['days'])} days · {v.get('verified', 0)}/{v.get('total', 0)} places verified"
             elif tool == "modify_itinerary":

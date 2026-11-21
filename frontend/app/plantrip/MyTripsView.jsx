@@ -28,10 +28,11 @@ function TripCard({ trip, onClick, onDelete, onStatusChange }) {
       }}
     >
       {/* Thumbnail */}
-      <div style={{
+      <div className="has-photo" style={{
         height: 140, background: trip.gradient,
         position: 'relative', overflow: 'hidden',
       }}>
+        <PhotoLayer place={trip.destination} photo={trip.photo} width={640} />
         {/* Flag badge */}
         <div style={{
           position: 'absolute', top: 12, left: 12,

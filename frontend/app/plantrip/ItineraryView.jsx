@@ -451,16 +451,18 @@ function ItineraryView({ trip, formData, onBack, isSaved }) {
     setCurrent(c => ({ ...c, id: bookedTrip?.id || c.id, status: 'upcoming' }));
   };
 
-  const dates = displayTrip.startDate ? `${fmtDate(displayTrip.startDate)} – ${fmtDate(displayTrip.endDate)}` : '—';
+  const dates = displayTrip.startDate ? `${fmtDate(displayTrip.startDate)} – ${fmtDate(displayTrip.endDate)}` : 'Flexible';
 
   return (
     <div className="v-main-flush" style={{ flex: 1, overflowY: 'auto', background: C.cream }}>
 
       {/* Hero banner */}
-      <div className="m-pad" style={{
+      <div className="m-pad has-photo" style={{
         background: displayTrip.gradient,
         padding: '36px 52px 32px', position: 'relative', overflow: 'hidden',
       }}>
+        <PhotoLayer place={displayTrip.destination} photo={displayTrip.photo} width={1600} credit
+          overlay="linear-gradient(to bottom, rgba(7,48,79,0.55), rgba(7,48,79,0.78))" />
         {/* Deco route */}
         <svg viewBox="0 0 600 120" width="600" height="120" style={{
           position: 'absolute', right: 0, top: 0, opacity: 0.18, pointerEvents: 'none',

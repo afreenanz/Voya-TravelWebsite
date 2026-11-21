@@ -58,6 +58,7 @@ def save_itinerary(client, email, itin, status="planning"):
             "verification": itin.get("verification"),
             "travel_considerations": itin.get("travel_considerations") or [],
             "transport": itin.get("transport"),
+            "photo": itin.get("photo"),
             "source": "voya-agent",
         },
     }

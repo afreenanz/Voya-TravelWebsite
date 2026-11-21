@@ -81,7 +81,8 @@ class Recorder:
 
 def deps_for(llm, rec):
     return nodes.Deps(db=None, llm=llm, search_places=rec.search_places, get_weather=rec.get_weather,
-                      generate_itinerary=rec.generate_itinerary, modify_itinerary=rec.modify_itinerary)
+                      generate_itinerary=rec.generate_itinerary, modify_itinerary=rec.modify_itinerary,
+                      find_photo=lambda place: {"url": "https://commons.wikimedia.org/wiki/Special:FilePath/x.jpg?width=1280"})
 
 
 def turn(db, user, message, llm, rec, conversation_id=None, events=None):

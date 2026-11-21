@@ -267,3 +267,74 @@ function useToast() {
 const fmtDate = (v, opts) => Voya.formatDate(v, opts);
 
 Object.assign(window, { C, Icon, VBtn, VCard, VChip, VAvatar, VSectionHead, VSidebar, VNotice, useToast, fmtDate });
+
+// ─── Real destination photos ──────────────────────────────────
+// Fixed destinations use hand-checked Wikimedia Commons photos (mostly the
+// Wikivoyage banners). Any other place: the trip's saved photo, else /api/photo
+// (server-cached). The photo fades in over the existing gradient, so a missing
+// or slow photo never leaves an empty box.
+const PLACE_PHOTO_FILES = {
+  thailand: 'Railay Beach banner.jpg', bali: 'Bali banner Rice terraces.jpg',
+  maldives: 'Maldives banner Small island shoreline with beach.jpg', japan: 'Mt. Fuji banner.jpg',
+  switzerland: 'Sörenberg banner.jpg', dubai: 'Dubai banner 2.jpg',
+  morocco: 'Aït Arbi (Maroc) banner Vallée des Gorges du Dadès.jpg',
+  vietnam: 'Ha Long bay (Vietnam) banner Islands in the bay.png',
+  singapore: 'Supertree Grove, Gardens by the Bay, Singapore - 20120704 (banner).jpg', paris: 'Paris banner.jpg',
+  kenya: 'Masai Mara banner.jpg', seychelles: 'La Digue asv2024-10 img15 Union Estate.jpg',
+  lisbon: 'Lisboa banner.jpg', portugal: 'Lisboa banner.jpg', kyoto: 'Kyoto banner Fushimi Inari Torii.png',
+  'mexico city': 'Atardecer En Bellas Artes Vertical (128312121).jpeg', mexico: 'Atardecer En Bellas Artes Vertical (128312121).jpeg',
+  'reykjavík': 'Reykjavik Wikivoyage banner.jpg', reykjavik: 'Reykjavik Wikivoyage banner.jpg', iceland: 'Reykjavik Wikivoyage banner.jpg',
+};
+
+function commonsUrl(file, width) {
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file.replace(/ /g, '_'))}?width=${width}`;
+}
+
+function curatedFile(place) {
+  const key = (place || '').trim().toLowerCase();
+  return PLACE_PHOTO_FILES[key] || PLACE_PHOTO_FILES[key.split(',')[0].trim()] || null;
+}
+
+function curatedPhotoUrl(place, width = 800) {
+  const key = (place || '').trim().toLowerCase();
+  const file = PLACE_PHOTO_FILES[key] || PLACE_PHOTO_FILES[key.split(',')[0].trim()];
+  return file ? commonsUrl(file, width) : null;
+}
+
+const _photoLookups = {};   // place → Promise<url|null>, shared by every card on the page
+
+function usePlacePhoto(place, photo, width = 800) {
+  const fixed = (photo && photo.url) || curatedPhotoUrl(place, width);
+  const [url, setUrl] = useState(fixed);
+  useEffect(() => {
+    if (fixed || !place) { setUrl(fixed); return; }
+    let live = true;
+    const key = place.trim().toLowerCase();
+    _photoLookups[key] = _photoLookups[key] || Voya.api(`/api/photo?place=${encodeURIComponent(place)}`)
+      .then(r => (r.ok && r.data.photo ? r.data.photo.url : null));
+    _photoLookups[key].then(u => { if (live) setUrl(u); });
+    return () => { live = false; };
+  }, [place, fixed]);
+  return url;
+}
+
+// Absolutely-positioned photo for a card or banner (parent needs position: relative).
+function PhotoLayer({ place, photo, width = 800, credit = false, overlay = 'linear-gradient(to bottom, rgba(0,0,0,0.05) 40%, rgba(7,48,79,0.45))' }) {
+  const url = usePlacePhoto(place, photo, width);
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) return null;
+  return (
+    <div data-testid="place-photo" style={{ position: 'absolute', inset: 0, opacity: loaded ? 1 : 0, transition: 'opacity 400ms' }}>
+      <img src={url} alt={place || ''} loading="lazy" onLoad={() => setLoaded(true)} onError={() => setFailed(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      {overlay && <div style={{ position: 'absolute', inset: 0, background: overlay }} />}
+      {credit && (() => {   // Wikimedia licences require attribution
+        const file = curatedFile(place);
+        const href = (photo && photo.credit_url) || (file ? `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(file.replace(/ /g, '_'))}` : 'https://commons.wikimedia.org/');
+        return <a href={href} target="_blank" rel="noopener noreferrer" style={{ position: 'absolute', right: 10, bottom: 8, zIndex: 2,
+          fontFamily: C.fb, fontSize: 10.5, color: 'rgba(255,255,255,0.75)', textDecoration: 'none' }}>Photo: Wikimedia Commons</a>;
+      })()}
+    </div>
+  );
+}

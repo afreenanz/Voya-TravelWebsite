@@ -16,6 +16,12 @@ sys.path.insert(0, ROOT)
 from backend import app as voya  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def no_photo_lookups(monkeypatch):
+    """Tests never call Wikimedia (it throttles); photo tests opt back in explicitly."""
+    monkeypatch.setattr(voya.photos_tool, "find_photo", lambda place: None)
+
+
 @pytest.fixture
 def client():
     voya.app.config["TESTING"] = True
