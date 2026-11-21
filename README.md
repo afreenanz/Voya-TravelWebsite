@@ -33,7 +33,7 @@ _The itinerary and dashboard screenshots show real AI output from the live site.
 | Frontend | HTML/CSS + React 18 (CDN) + Babel Standalone (no build step), Lucide icons |
 | Backend | Python, Flask 3, PyJWT |
 | Data / Auth / Storage | Supabase (Postgres, Auth, Storage) |
-| AI | OpenRouter → DeepSeek Chat v3 (configurable) |
+| AI | OpenRouter → free NVIDIA Nemotron 3 Ultra, with automatic fallback to a second free model (configurable) |
 | Hosting | Vercel (Python Function, Fluid Compute) |
 
 ## Architecture
@@ -88,7 +88,9 @@ python backend/app.py     # → http://localhost:5001
 | `SUPABASE_URL` | Supabase → Project Settings → Data API → Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys → **secret** key (server-side only) |
 | `OPENROUTER_API_KEY` | https://openrouter.ai/keys |
-| `OPENROUTER_MODEL` | Optional, defaults to `deepseek/deepseek-chat-v3-0324` |
+| `OPENROUTER_MODEL` | Optional, defaults to `nvidia/nemotron-3-ultra-550b-a55b:free` |
+| `OPENROUTER_FALLBACK_MODELS` | Optional, comma-separated backups used when the main model is rate-limited (default `google/gemma-4-31b-it:free`) |
+| `GEOAPIFY_API_KEY` | Not used yet; reserved for the upcoming places search (free tier) |
 | `APP_SECRET_KEY` | `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `APP_BASE_URL` | `http://localhost:5001` locally, your production URL on Vercel |
 

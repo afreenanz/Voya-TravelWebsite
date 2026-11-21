@@ -42,7 +42,12 @@ load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 SUPABASE_URL      = re.sub(r"/rest/v1/?$", "", (os.getenv("SUPABASE_URL") or "").strip().rstrip("/"))
 SUPABASE_KEY      = (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or "").strip()
 OPENROUTER_KEY    = (os.getenv("OPENROUTER_API_KEY") or "").strip()
-OPENROUTER_MODEL  = (os.getenv("OPENROUTER_MODEL") or "deepseek/deepseek-chat-v3-0324").strip()
+OPENROUTER_MODEL  = (os.getenv("OPENROUTER_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b:free").strip()
+# Backup models OpenRouter switches to when the main one is rate-limited or down
+# (comma-separated; OpenRouter accepts at most 3 models in total).
+OPENROUTER_FALLBACK_MODELS = [m.strip() for m in (
+    os.getenv("OPENROUTER_FALLBACK_MODELS") or "google/gemma-4-31b-it:free").split(",")
+    if m.strip() and m.strip() != OPENROUTER_MODEL][:2]
 APP_SECRET_KEY    = (os.getenv("APP_SECRET_KEY") or "").strip()
 APP_BASE_URL      = (os.getenv("APP_BASE_URL") or "").strip().rstrip("/")
 
@@ -52,8 +57,10 @@ TOKEN_ISSUER      = "voya"
 
 # Vercel maxDuration for the function is 120s (vercel.json). Keep the whole
 # AI budget below that so we always answer before the platform kills us.
-AI_TOTAL_BUDGET_S = 100
-AI_ATTEMPT_TIMEOUT_S = 55
+# Free models can take 60-90s for a full itinerary, so one attempt may use most
+# of the budget; the retry only runs if at least 15s remain.
+AI_TOTAL_BUDGET_S = 110
+AI_ATTEMPT_TIMEOUT_S = 100
 CHAT_TIMEOUT_S    = 30
 MAX_TRIP_DAYS     = 14
 
@@ -714,6 +721,8 @@ def call_openrouter(messages, *, max_tokens, timeout, json_mode=False, temperatu
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
+    if OPENROUTER_FALLBACK_MODELS:
+        payload["models"] = [OPENROUTER_MODEL, *OPENROUTER_FALLBACK_MODELS]
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
     try:
@@ -736,9 +745,12 @@ def call_openrouter(messages, *, max_tokens, timeout, json_mode=False, temperatu
         log.warning("OpenRouter HTTP %s: %s", res.status_code, res.text[:300])
         raise AIError(f"http {res.status_code}")
     try:
-        content = res.json()["choices"][0]["message"]["content"]
+        data = res.json()
+        content = data["choices"][0]["message"]["content"]
     except (ValueError, KeyError, IndexError, TypeError):
         raise AIError("malformed response")
+    if data.get("model") and data["model"] != OPENROUTER_MODEL:
+        log.info("OpenRouter answered with fallback model %s", data["model"])
     if not content or not content.strip():
         raise AIError("empty response")
     return content.strip()

@@ -73,7 +73,7 @@ Live: https://voya-travel-website-eta.vercel.app
 | Tool | Purpose |
 |---|---|
 | **OpenRouter** | One API for many models; model chosen by the `OPENROUTER_MODEL` env var |
-| **DeepSeek Chat v3** (default) | Generates itineraries (JSON mode) and chat replies |
+| **NVIDIA Nemotron 3 Ultra (free)** (default) | Generates itineraries (JSON mode) and chat replies; OpenRouter falls back to a second free model when it is rate-limited |
 
 ### Hosting
 | Tool | Purpose |
@@ -131,7 +131,7 @@ Voya-TravelWebsite/
        ▼                   ▼
 ┌──────────────┐    ┌───────────────┐
 │ Supabase     │    │ OpenRouter    │
-│ Postgres     │    │ (DeepSeek)    │
+│ Postgres     │    │ (free models) │
 │ Auth/Storage │    └───────────────┘
 └──────────────┘
 ```
@@ -289,7 +289,7 @@ jwt.encode({"sub": email, "name": name, "iss": "voya", "iat": now, "exp": now + 
 System prompt ("You are Voya AI… 2–5 sentences"), plus the last 10 turns, plus the new message; `max_tokens: 400`, 30s timeout, 15 per minute per user. Errors are shown inside the chat panel.
 
 ### Model choice
-`OPENROUTER_MODEL` (default `deepseek/deepseek-chat-v3-0324`). Switching models is an env-var change in Vercel; no code change needed.
+`OPENROUTER_MODEL` (default `nvidia/nemotron-3-ultra-550b-a55b:free`) plus `OPENROUTER_FALLBACK_MODELS`, sent to OpenRouter as a `models` list so it switches automatically when the first model is busy. Switching models is an env-var change in Vercel; no code change needed.
 
 ---
 
@@ -370,7 +370,7 @@ My Trips / Dashboard / Profile ─► GET /api/get-trips
 A: An AI trip planner. You give it a destination, dates, budget and style, and it returns a day-by-day itinerary with real places and an estimated budget breakdown, in about 30 seconds instead of hours of research across many sites.
 
 **Q: Walk me through the stack.**
-A: Flask on Vercel serves both the frontend and a JSON API. Supabase provides Postgres, auth (email codes, Google) and file storage. OpenRouter routes AI calls to DeepSeek. The UI is React from a Figma export, loaded from a CDN with in-browser Babel, so there's no build step.
+A: Flask on Vercel serves both the frontend and a JSON API. Supabase provides Postgres, auth (email sign-in links) and file storage. OpenRouter routes AI calls to free models, with automatic fallback when one is rate-limited. The UI is React from a Figma export, loaded from a CDN with in-browser Babel, so there's no build step.
 
 **Q: How does authentication work?**
 A: Every login method (password, email code, Google) ends with the server issuing its own HS256 JWT with a 7-day expiry. The browser sends it as a Bearer token. A `@require_auth` decorator verifies it and puts the email in `g.email`. Endpoints never trust an email from the request.
