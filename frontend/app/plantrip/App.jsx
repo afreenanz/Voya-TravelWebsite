@@ -156,9 +156,11 @@ const PATH_FOR_VIEW = { form: '/app/plan', trips: '/app/trips' };
 
 function PlanTripApp() {
   const params = new URLSearchParams(window.location.search);
+  const [agentConv]                       = useState(() => params.get('conversation'));
   const [view, setView] = useState(() =>
-    (window.location.pathname.replace(/\/$/, '') === '/app/trips' || window.location.hash === '#trips' || params.get('trip'))
-      ? 'trips' : 'form');
+    agentConv ? 'opening'
+      : (window.location.pathname.replace(/\/$/, '') === '/app/trips' || window.location.hash === '#trips' || params.get('trip'))
+        ? 'trips' : 'form');
   const [openTripId]                      = useState(() => params.get('trip'));
   const [prefillDest]                     = useState(() => params.get('destination') || '');
   const [formData, setFormData]           = useState(null);
@@ -199,6 +201,21 @@ function PlanTripApp() {
     setView('itinerary');
   };
 
+  // "Open full plan" from the AI agent: show the conversation's draft in the normal itinerary view.
+  useEffect(() => {
+    if (!agentConv) return;
+    Voya.api(`/api/conversations/${encodeURIComponent(agentConv)}`).then(r => {
+      const d = r.ok && r.data.conversation.draft_itinerary;
+      if (!d) { setGenError(r.ok ? 'That conversation has no trip plan yet.' : r.error); setView('form'); return; }
+      const trip = buildTripFromApiResponse(d, {
+        budget: d.budget || (d.budget_summary || {}).total_formatted || '', startDate: d.start_date, endDate: d.end_date,
+        travelers: d.travelers, styleLabels: d.interests || [],
+      });
+      if (d.saved_trip_id) { setSelectedTrip({ ...trip, id: d.saved_trip_id }); setView('tripDetail'); }
+      else { setFormData(trip); setView('itinerary'); }
+    });
+  }, [agentConv]);
+
   const handleSelectTrip = (trip) => {
     setSelectedTrip(trip);
     setView('tripDetail');
@@ -219,13 +236,17 @@ function PlanTripApp() {
         <PlanForm onGenerate={handleGenerate} error={genError}
           initial={formInputData || (prefillDest ? { dest: prefillDest } : null)} />
       )}
+      {view === 'opening' && (
+        <main className="v-main" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.cream,
+          fontFamily: C.fb, fontSize: 15, color: C.fg3 }}>Opening your plan…</main>
+      )}
       {view === 'loading' && (
         <LoadingView dest={formInputData?.dest || 'your'} />
       )}
       {view === 'itinerary' && (
         <ItineraryView
           formData={formData}
-          onBack={() => setView('form')}
+          onBack={() => (agentConv ? window.location.assign('/app') : setView('form'))}
         />
       )}
       {view === 'trips' && (
@@ -236,7 +257,7 @@ function PlanTripApp() {
         <ItineraryView
           trip={selectedTrip}
           isSaved={true}
-          onBack={() => setView('trips')}
+          onBack={() => (agentConv ? window.location.assign('/app') : setView('trips'))}
         />
       )}
     </div>

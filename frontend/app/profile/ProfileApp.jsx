@@ -483,6 +483,7 @@ function ProfileApp() {
             <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
               <div>
                 <EditProfileCard profile={profile} onSaved={(p) => setProfile(prev => ({ ...prev, ...p }))} />
+                <TravelPreferencesCard onToast={showToast} />
                 <Achievements stats={stats} />
                 <RecentActivity trips={trips} />
               </div>

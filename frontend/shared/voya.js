@@ -126,6 +126,57 @@
       });
   }
 
+  /* stream(path, body, onEvent) → Promise<{ ok, error, result }>
+   * POSTs JSON and reads a Server-Sent Events response, calling onEvent for each
+   * {type: …} event as it arrives. Falls back to fallbackPath (plain JSON) when
+   * the browser can't stream. Never throws. */
+  function stream(path, body, onEvent, fallbackPath) {
+    var token = getToken();
+    var headers = { 'Content-Type': 'application/json', Accept: 'text/event-stream' };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    var canStream = typeof TextDecoder !== 'undefined' && window.ReadableStream;
+    if (!canStream && fallbackPath) {
+      return api(fallbackPath, { method: 'POST', body: body }).then(function (r) {
+        if (r.ok) onEvent(Object.assign({ type: 'result' }, r.data));
+        return { ok: r.ok, error: r.error, result: r.ok ? r.data : null };
+      });
+    }
+    return fetch(path, { method: 'POST', headers: headers, body: JSON.stringify(body) })
+      .then(function (res) {
+        var type = res.headers.get('Content-Type') || '';
+        if (!res.ok || type.indexOf('text/event-stream') === -1) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            if (res.status === 401 && token) { clear(); window.location.replace(loginUrl()); }
+            return { ok: false, error: data.error || ('Something went wrong (' + res.status + '). Please try again.') };
+          });
+        }
+        var reader = res.body.getReader(), decoder = new TextDecoder(), buf = '', last = { ok: false, error: 'The connection closed early. Please try again.' };
+        function pump() {
+          return reader.read().then(function (chunk) {
+            if (chunk.done) return last;
+            buf += decoder.decode(chunk.value, { stream: true });
+            var parts = buf.split('\n\n');
+            buf = parts.pop();
+            parts.forEach(function (part) {
+              part.split('\n').forEach(function (line) {
+                if (line.indexOf('data: ') !== 0) return;
+                var ev;
+                try { ev = JSON.parse(line.slice(6)); } catch (e) { return; }
+                if (ev.type === 'result') last = { ok: true, result: ev };
+                if (ev.type === 'error') last = { ok: false, error: ev.error };
+                onEvent(ev);
+              });
+            });
+            return pump();
+          });
+        }
+        return pump();
+      })
+      .catch(function () {
+        return { ok: false, error: "Can't reach Voya right now. Check your connection and try again." };
+      });
+  }
+
   /* Dates are stored as YYYY-MM-DD; older trips may hold pre-formatted text. */
   function formatDate(value, opts) {
     if (!value) return '';
@@ -147,6 +198,6 @@
     requireAuth: requireAuth, redirectIfAuthed: redirectIfAuthed,
     rememberNext: rememberNext, consumeNext: consumeNext, nextFromQuery: nextFromQuery,
     userName: userName, setUserName: setUserName,
-    api: api, formatDate: formatDate, parseDate: parseDate,
+    api: api, stream: stream, formatDate: formatDate, parseDate: parseDate,
   };
 })();

@@ -209,7 +209,7 @@ def decide(state, config):
             start = today + timedelta(days=TENTATIVE_START_DAYS)
             trip["start_date"] = start.isoformat()
             trip["end_date"] = (start + timedelta(days=trip["duration_days"] - 1)).isoformat()
-            notes.append(f"You didn't give dates, so I used tentative dates ({trip['start_date']} to {trip['end_date']}). "
+            notes.append(f"You didn't give dates, so I used tentative dates ({fmt_date(trip['start_date'])} to {fmt_date(trip['end_date'])}). "
                          "Tell me your real dates and I'll check the weather.")
         if not trip["end_date"]:
             return ask("When does the trip end (or how many days is it)?")
@@ -327,9 +327,18 @@ def execute_tools(state, config):
 
 
 # ── 5. respond ──────────────────────────────────────────────────────────────
+def fmt_date(iso):
+    """'2026-11-24' → 'Nov 24, 2026' (falls back to the input)."""
+    try:
+        d = date.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return iso or ""
+    return f"{d.strftime('%b')} {d.day}, {d.year}"
+
+
 def _plan_reply(draft, notes, verb="Here's"):
     b = draft.get("budget_summary") or {}
-    s, e = draft.get("start_date"), draft.get("end_date")
+    s, e = fmt_date(draft.get("start_date")), fmt_date(draft.get("end_date"))
     lines = [f"{verb} your {len(draft['days'])}-day {draft.get('destination')} plan ({s} to {e}) "
              f"for {draft.get('travelers')} traveller{'s' if (draft.get('travelers') or 1) > 1 else ''}."]
     if b:
@@ -341,7 +350,7 @@ def _plan_reply(draft, notes, verb="Here's"):
     w = draft.get("weather") or {}
     if w.get("status") in ("ok", "partial") and w.get("days"):
         first = w["days"][0]
-        lines.append(f"Weather (Open-Meteo): {first['summary'].lower()}, {first['temp_min_c']}–{first['temp_max_c']}°C on {first['date']}.")
+        lines.append(f"Weather (Open-Meteo): {first['summary'].lower()}, {first['temp_min_c']}–{first['temp_max_c']}°C on {fmt_date(first['date'])}.")
     elif w.get("message"):
         lines.append(w["message"])
     v = draft.get("verification") or {}

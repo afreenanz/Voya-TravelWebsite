@@ -1,0 +1,6 @@
+{
+  "name": "voya-e2e",
+  "private": true,
+  "description": "Browser end-to-end tests for Voya (Playwright)",
+  "devDependencies": { "playwright": "1.65.1" }
+}

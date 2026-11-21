@@ -99,9 +99,12 @@ function HeroSection({ name, stats }) {
 // ─── AI Search ────────────────────────────────────────────────
 function AISearch() {
   const [q, setQ] = useState('');
+  // Free-text requests ("Thailand under ₹50,000") go to the AI agent card below.
   const go = (value) => {
     const v = (value ?? q).trim();
-    if (v) window.location.href = `/app/plan?destination=${encodeURIComponent(v)}`;
+    if (!v) return;
+    setQ('');
+    window.dispatchEvent(new CustomEvent('voya:ask', { detail: v }));
   };
   const [focused, setFocused] = useState(false);
   const [pi, setPi] = useState(0);
@@ -322,115 +325,7 @@ function UpcomingTrips({ trips, error }) {
   );
 }
 
-// ─── AI Assistant ─────────────────────────────────────────────
-function AIAssistant() {
-  const [input,  setInput]  = useState('');
-  const [msgs,   setMsgs]   = useState([
-    { r: 'voya', t: 'Hey! Where are you dreaming of going? Ask me anything — destinations, budgets, best seasons, hidden gems. ✈️' },
-  ]);
-  const [typing, setTyping] = useState(false);
-  const chatRef = useRef(null);
-
-  useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [msgs, typing]);
-
-  const send = async () => {
-    const msg = input.trim();
-    if (!msg || typing) return;
-    setInput('');
-
-    const updated = [...msgs, { r: 'user', t: msg }];
-    setMsgs(updated);
-    setTyping(true);
-
-    try {
-      // Build history in OpenRouter format (exclude current message — it goes in `message`)
-      const history = updated.slice(1, -1).filter(m => m.r !== 'error').map(m => ({
-        role:    m.r === 'user' ? 'user' : 'assistant',
-        content: m.t,
-      }));
-
-      const r = await Voya.api('/api/chat', { method: 'POST', body: { message: msg, history } });
-      setMsgs(m => [...m, r.ok ? { r: 'voya', t: r.data.reply } : { r: 'error', t: r.error }]);
-    } finally {
-      setTyping(false);
-    }
-  };
-
-  return (
-    <VCard padding={0} radius={20} style={{ overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{
-        background: `linear-gradient(135deg, ${C.navy} 0%, ${C.ocean} 100%)`,
-        padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12,
-      }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: C.amber, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="sparkles" size={18} color="#fff" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: C.fd, fontWeight: 700, fontSize: 15, color: '#fff' }}>Voya AI</div>
-          <div style={{ fontFamily: C.fb, fontSize: 11, color: 'rgba(241,239,232,0.60)' }}>Your travel companion</div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: typing ? C.amber : '#2FA56A', transition: 'background 300ms' }} />
-          <span style={{ fontFamily: C.fb, fontSize: 11, color: 'rgba(241,239,232,0.70)' }}>{typing ? 'Thinking…' : 'Online'}</span>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div ref={chatRef} style={{ padding: '12px 14px 6px', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 185, overflowY: 'auto' }}>
-        {msgs.map((m, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: m.r === 'user' ? 'flex-end' : 'flex-start' }}>
-            <div style={{
-              maxWidth: '84%', padding: '8px 12px',
-              borderRadius: m.r === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-              background: m.r === 'user' ? C.ocean : m.r === 'error' ? 'rgba(226,85,61,0.10)' : C.sky,
-              color: m.r === 'user' ? '#fff' : m.r === 'error' ? C.danger : C.ink,
-              fontFamily: C.fb, fontSize: 13, lineHeight: 1.5,
-            }}>{m.t}</div>
-          </div>
-        ))}
-        {typing && (
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div style={{ padding: '10px 14px', borderRadius: '14px 14px 14px 4px', background: C.sky, display: 'flex', gap: 5, alignItems: 'center' }}>
-              {[0, 1, 2].map(i => (
-                <span key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: C.fg3, display: 'inline-block', animation: `dotPulse 1.2s ease-in-out ${i * 0.18}s infinite` }} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Input */}
-      <div style={{ padding: '8px 14px 14px', display: 'flex', gap: 8 }}>
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder="Ask Voya anything..."
-          disabled={typing}
-          style={{
-            flex: 1, padding: '9px 13px',
-            border: `1.5px solid ${C.borderDefault}`,
-            borderRadius: 12, outline: 'none', background: C.sky,
-            fontFamily: C.fb, fontSize: 13, color: C.ink,
-            opacity: typing ? 0.65 : 1,
-          }}
-        />
-        <button onClick={send} disabled={typing} style={{
-          width: 36, height: 36, borderRadius: 10, border: 0,
-          background: typing ? C.borderDefault : C.ocean,
-          cursor: typing ? 'default' : 'pointer', flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'background 200ms',
-        }}>
-          <Icon name="send" size={15} color="#fff" />
-        </button>
-      </div>
-    </VCard>
-  );
-}
+// ─── AI Assistant: see agent.jsx ─────────────────────────────
 
 // ─── Recent Searches ──────────────────────────────────────────
 function RecentSearches() {

@@ -21,6 +21,7 @@ Live: https://voya-travel-website-eta.vercel.app
 12. [Security Practices](#12-security-practices)
 13. [Deployment](#13-deployment)
 14. [Interview Q&A](#14-interview-qa)
+15. [Voya 2.0 — The AI Travel Agent](#15-voya-20--the-ai-travel-agent)
 
 ---
 
@@ -395,3 +396,63 @@ A: Token revocation (a server-side session table), email verification for passwo
 
 **Q: Why use email as the foreign key instead of user id?**
 A: Supabase Auth users and the custom `users` table are separate systems, and email is the identifier shared across all three login methods. Emails are normalised to lower case and unique.
+
+---
+
+## 15. Voya 2.0 — The AI Travel Agent
+
+### What changed
+Voya went from "one prompt → one itinerary" to a **tool-using agent** with memory. The traveller chats on the dashboard; the agent decides which tools to run, shows each step live, returns a structured plan, edits it in conversation, and saves it only when asked.
+
+### The graph (LangGraph, `backend/agent/`)
+```
+load_context → understand → decide ─┬─ (clarify / answer) ─────────┐
+ (Supabase)   (LLM call 1)  (code   └─ execute_tools → respond ───┴→ persist
+                            guardrails)
+```
+| Node | What it does | LLM? |
+|---|---|---|
+| `load_context` | Reads preferences, profile, last 5 trips, last 12 messages, and the draft itinerary from Supabase | No |
+| `understand` | Returns JSON: intent, trip details, tools to run, preferences to remember, or a clarifying question | **Yes (1)** |
+| `decide` | Guardrails: fills gaps from the draft and preferences, sets tentative dates (and says so), blocks saving unless asked, needs a draft before editing, checks dates and the 14-day limit, asks instead of guessing | No |
+| `execute_tools` | Runs the tools in dependency order; each failure is recorded on its own step | Only itinerary generate/modify |
+| `respond` | Template for plans (exact numbers, no extra call); one grounded LLM answer for open questions | Sometimes |
+| `persist` | Saves both messages with tool metadata, plus the updated draft | No |
+
+### Tools (`backend/tools/`)
+| Tool | Source | Never invents… |
+|---|---|---|
+| Destination search | Geoapify Places (OpenStreetMap), ranked by notability | Places: they come from map data |
+| Place verification | Geoapify geocoding filtered to the country and biased to the destination | Marks a place verified only on a full-name match |
+| Weather | Open-Meteo forecast | Returns "unavailable" beyond the 16-day forecast window |
+| Budget | Python `Decimal` | Totals, remaining, per day, per person: the LLM only estimates categories |
+| Itinerary generate/modify | LLM + validator | Modify returns only changed days, and the rest are kept as they were |
+| Save trip | Supabase | Success is reported only after reading the row back; same trip + dates updates instead of duplicating |
+
+### Memory
+- `user_preferences`: allowlisted keys only (destinations, interests, activities, accommodation, dietary, budget, pace). Anything else, like a passport number, is rejected.
+- `conversations` + `conversation_messages`: history with `tool_metadata`, plus `draft_itinerary` for the plan being edited.
+- Everything is reloaded from the database on every turn, so memory doesn't depend on the LLM's context window or on serverless instance memory.
+
+### Frontend
+- Dashboard "Voya AI" card (`app/dashboard/agent.jsx`) calls `POST /api/agent/stream` (Server-Sent Events). It shows each step live, then a reply, an itinerary preview, **Save to My Trips** and **Open full plan**. "Open full plan" shows the plan in the existing itinerary view. The card also has history and New chat.
+- The dashboard search bar sends free text to the agent.
+- Profile → "Travel preferences" lets you view, edit and delete what the agent remembers.
+
+### More interview Q&A
+
+**Q: Why plan-and-execute instead of a ReAct loop with native function calling?**
+A: Each ReAct step is another LLM round-trip. On OpenRouter's free tier (50 requests/day per account), a 4-tool request would cost 5–6 calls. Here one call plans the tools and code runs them, so a full trip costs 2 calls. Deterministic guardrails also make the dangerous decisions (saving, dates, missing info) testable without an LLM.
+
+**Q: How do you stop the AI from claiming it saved a trip when it didn't?**
+A: The AI never writes the reply for a save. Saving only runs if the traveller asked in that message or pressed Confirm. The reply is built from the save tool's result, and that tool only returns success after reading the row back from the database. A test forces the save to fail and checks the reply says "Nothing was saved."
+
+**Q: Why not use a LangGraph checkpointer for memory?**
+A: Vercel functions are stateless and instances don't share memory. An in-memory checkpointer would lose state between requests, and a Postgres checkpointer would need a direct DB connection. The conversation, messages and draft are already in Supabase, so the graph rebuilds its state from there on every request.
+
+**Q: How do you test an LLM agent without spending quota?**
+A: The LLM, tools and DB are injected through a `Deps` object. Unit and integration tests (pytest) script the LLM's JSON and use the real Supabase project for persistence. The browser tests run a local server with real Geoapify/Open-Meteo/Supabase and a rule-based stand-in for the LLM. A separate evaluation (`eval/run_agent_eval.py`) runs 20 realistic requests against the real model and reports intent accuracy, tool-selection accuracy, parameter extraction and latency.
+
+**Q: How is "verified" different from "estimated" in the UI?**
+A: Each activity carries `verified: true` plus an address and coordinates only when map data matched it by full name. The preview shows "X of Y stops verified on the map · costs are estimates". Distances between stops are straight-line distances and labelled as approximate.
+

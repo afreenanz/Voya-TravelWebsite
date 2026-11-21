@@ -18,3 +18,4 @@ supabase/
 tests/
 requirements-dev.txt
 eval/
+e2e/

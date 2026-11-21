@@ -21,7 +21,9 @@ _The itinerary and dashboard screenshots show real AI output from the live site.
 - **AI itineraries:** day-by-day plans with real hotels, restaurants and landmarks, plus an estimated budget breakdown (flights, stay, food, activities, transport, misc).
 - **Personalised:** your home airport, budget tier and travel style from your profile shape every plan.
 - **My Trips:** save to wishlist, mark as upcoming ("Book it all") or completed, delete, reopen any itinerary.
-- **AI travel assistant:** chat on the dashboard (visas, weather, packing, food…).
+- **AI travel agent:** on the dashboard, ask in plain language ("Plan a five-day trip to Bali under ₹60,000, I like beaches and cafes"). You watch it pick and run tools live: places search, real weather forecast, itinerary, budget. Then you change the plan in conversation ("make day two less hectic") and save it with one click.
+- **Memory:** Voya remembers lasting preferences you mention (interests, pace, diet…) and your past trips, and uses them next time. You can view, edit or delete them on your Profile.
+- **Honest data:** places verified against OpenStreetMap are marked as verified, weather comes only from a real forecast, and budget totals are calculated in code. Anything the AI estimated is labelled as an estimate.
 - **Accounts:** email + password, or a passwordless sign-in link sent by email. Google sign-in is planned.
 - **Profile:** photo upload, plus stats and achievements computed from your real trips.
 - Works on desktop and mobile.
@@ -75,6 +77,7 @@ backend/services/       memory.py (preferences + conversation history), ai.py (O
 backend/agent/          LangGraph travel agent: state, prompts, nodes (guardrails), graph, service
 backend/tools/          Agent tools: places, weather, budget, itinerary (generate/modify), geo verification
 eval/                   Agent evaluation set + runner (real LLM)
+e2e/                    Playwright browser tests + local test server
 tests/                  pytest suite (unit + integration against Supabase)
 frontend/landing/       Landing page          → /
 frontend/auth/          Login/signup + OAuth  → /login, /auth/callback
@@ -131,6 +134,16 @@ pip install -r requirements-dev.txt
 python -m pytest            # unit tests + integration tests against the Supabase project in .env
 python -m pytest -m "not integration"   # unit tests only, no network
 python -m pytest -m live                # real Geoapify + Open-Meteo calls (no AI)
+```
+
+Browser end-to-end tests (Playwright) run the real app against your Supabase project, with real Geoapify and Open-Meteo calls; only the LLM is replaced by a rule-based stand-in:
+
+```bash
+cd e2e && npm install && npx playwright install chromium && cd ..
+python e2e/fake_agent_server.py &                                   # http://127.0.0.1:5002
+node e2e/agent_ui.e2e.js http://127.0.0.1:5002 /tmp/shots          # agent flow, desktop (21 checks)
+node e2e/agent_ui.e2e.js http://127.0.0.1:5002 /tmp/shots mobile   # same at 390px
+node e2e/site_smoke.e2e.js http://127.0.0.1:5002 /tmp/shots        # every page: console errors, overflow, links
 ```
 
 Tests never call the AI: OpenRouter's free tier allows 50 requests/day per account, shared with the live site, so the AI is faked in tests.
