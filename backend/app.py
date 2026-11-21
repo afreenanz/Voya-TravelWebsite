@@ -26,6 +26,11 @@ from supabase import ClientOptions, create_client
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash, generate_password_hash
 
+try:  # package import on Vercel / tests ("backend.app"); script import for `python backend/app.py`
+    from backend.services import memory
+except ImportError:  # pragma: no cover
+    from services import memory
+
 mimetypes.add_type("application/javascript", ".jsx")
 
 # ── Paths & config ──────────────────────────────────────────────────────────
@@ -706,6 +711,98 @@ def api_get_searches():
 def api_clear_searches():
     db().table("searches").delete().eq("user_email", g.email).execute()
     return ok()
+
+
+# ── Agent memory: preferences + conversations (Voya 2.0) ────────────────────
+def current_user_id():
+    """users.id for the signed-in user (memory tables are keyed by id, not email)."""
+    if "user_id" not in g:
+        user = get_user(g.email, "id")
+        if not user:
+            raise ApiError("Please log in to continue.", 401)
+        g.user_id = user["id"]
+    return g.user_id
+
+
+@app.get("/api/preferences")
+@require_auth
+def api_get_preferences():
+    prefs, updated_at = memory.get_preferences(db(), current_user_id())
+    return ok(preferences=prefs, updated_at=updated_at,
+              fields={"lists": memory.LIST_KEYS, "text": memory.TEXT_KEYS, "pace_values": memory.PACE_VALUES})
+
+
+@app.put("/api/preferences")
+@require_auth
+def api_put_preferences():
+    data = body()
+    try:
+        prefs = memory.clean_preferences(data.get("preferences"))
+    except memory.MemoryInputError as e:
+        raise ApiError(str(e), 400)
+    return ok(preferences=memory.save_preferences(db(), current_user_id(), prefs))
+
+
+@app.delete("/api/preferences")
+@require_auth
+def api_clear_preferences():
+    memory.clear_preferences(db(), current_user_id())
+    return ok(preferences={})
+
+
+@app.delete("/api/preferences/<key>")
+@require_auth
+def api_delete_preference(key):
+    try:
+        prefs = memory.delete_preference(db(), current_user_id(), key)
+    except memory.MemoryInputError as e:
+        raise ApiError(str(e), 400)
+    return ok(preferences=prefs)
+
+
+@app.get("/api/memory/context")
+@require_auth
+def api_memory_context():
+    """What the agent knows about the user — shown to them for transparency."""
+    ctx = memory.build_user_context(db(), current_user_id(), g.email)
+    return ok(context=ctx, summary=memory.context_to_prompt(ctx))
+
+
+@app.get("/api/conversations")
+@require_auth
+def api_list_conversations():
+    return ok(conversations=memory.list_conversations(db(), current_user_id()))
+
+
+@app.get("/api/conversations/<conversation_id>")
+@require_auth
+def api_get_conversation(conversation_id):
+    conv = memory.get_conversation(db(), current_user_id(), conversation_id)
+    if not conv:
+        raise ApiError("Conversation not found.", 404)
+    conv.pop("user_id", None)
+    return ok(conversation=conv, messages=memory.get_messages(db(), conv["id"]))
+
+
+@app.delete("/api/conversations/<conversation_id>")
+@require_auth
+def api_delete_conversation(conversation_id):
+    if not memory.delete_conversation(db(), current_user_id(), conversation_id):
+        raise ApiError("Conversation not found.", 404)
+    return ok()
+
+
+# ── Keep-alive (Vercel Cron) ────────────────────────────────────────────────
+# Supabase pauses free projects after ~7 days without activity. A daily cron
+# (vercel.json) makes one tiny query so the demo never goes to sleep.
+@app.get("/api/cron/keepalive")
+def api_keepalive():
+    cron_secret = (os.getenv("CRON_SECRET") or "").strip()
+    if cron_secret and request.headers.get("Authorization", "") != f"Bearer {cron_secret}":
+        raise ApiError("Not found.", 404)
+    rate_limit("auth", "keepalive:" + _client_ip())
+    db().table("users").select("id").limit(1).execute()
+    return ok(at=datetime.now(timezone.utc).isoformat())
 
 
 # ── AI ──────────────────────────────────────────────────────────────────────

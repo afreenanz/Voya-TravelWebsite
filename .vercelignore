@@ -15,3 +15,5 @@ node_modules/
 README.md
 VOYA_STUDY_GUIDE.md
 supabase/
+tests/
+requirements-dev.txt

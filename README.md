@@ -54,13 +54,16 @@ More detail: [`VOYA_STUDY_GUIDE.md`](VOYA_STUDY_GUIDE.md).
 
 ```
 backend/app.py          Flask app: page routes + /api
+backend/services/       Reusable services (memory.py: preferences + conversation history)
+tests/                  pytest suite (unit + integration against Supabase)
 frontend/landing/       Landing page          → /
 frontend/auth/          Login/signup + OAuth  → /login, /auth/callback
 frontend/app/           Signed-in app (JSX)   → /app, /app/plan, /app/trips, /app/explore, /app/profile
 frontend/shared/        CSS, logos, voya.js (session + API helper)
 supabase/schema.sql     Tables, indexes, RLS, grants, avatars bucket
-pyproject.toml          Dependencies + Vercel entrypoint
-vercel.json             Flask framework, 120s max duration
+supabase/migrations/    Incremental migrations, run in order after schema.sql
+pyproject.toml          Dependencies + Vercel entrypoint + pytest config
+vercel.json             Flask framework, 120s max duration, daily keep-alive cron
 ```
 
 ## Run locally
@@ -97,6 +100,18 @@ python backend/app.py     # → http://localhost:5001
 ### Database
 
 Run [`supabase/schema.sql`](supabase/schema.sql) in **Supabase → SQL Editor**. It's idempotent and creates the `users`, `trips` and `searches` tables, indexes, RLS, grants and the public `avatars` storage bucket.
+
+Then run each file in [`supabase/migrations/`](supabase/migrations/) in order. `001_agent_memory.sql` adds `user_preferences`, `conversations` and `conversation_messages` (foreign keys to `users.id` with cascade delete, RLS, no public access).
+
+### Tests
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest            # unit tests + integration tests against the Supabase project in .env
+python -m pytest -m "not integration"   # unit tests only, no network
+```
+
+Integration tests create throwaway `@example.com` users and delete everything they created. They're skipped automatically if `.env` or the migration is missing.
 
 ### Supabase Auth settings
 
