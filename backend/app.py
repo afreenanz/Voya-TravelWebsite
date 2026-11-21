@@ -48,11 +48,14 @@ SUPABASE_URL      = re.sub(r"/rest/v1/?$", "", (os.getenv("SUPABASE_URL") or "")
 SUPABASE_KEY      = (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or "").strip()
 OPENROUTER_KEY    = (os.getenv("OPENROUTER_API_KEY") or "").strip()
 OPENROUTER_MODEL  = (os.getenv("OPENROUTER_MODEL") or "nvidia/nemotron-3-ultra-550b-a55b:free").strip()
-# Backup models OpenRouter switches to when the main one is rate-limited or down
-# (comma-separated; OpenRouter accepts at most 3 models in total).
+# Chat replies are short, so they use a fast model first; itineraries use
+# OPENROUTER_MODEL (best at long structured JSON). Free models are often
+# rate-limited, so every call sends the other models as fallbacks and
+# OpenRouter switches automatically (at most 3 models per request).
+OPENROUTER_CHAT_MODEL = (os.getenv("OPENROUTER_CHAT_MODEL") or "nvidia/nemotron-3.5-super-vl:free").strip()
 OPENROUTER_FALLBACK_MODELS = [m.strip() for m in (
-    os.getenv("OPENROUTER_FALLBACK_MODELS") or "google/gemma-4-31b-it:free").split(",")
-    if m.strip() and m.strip() != OPENROUTER_MODEL][:2]
+    os.getenv("OPENROUTER_FALLBACK_MODELS") or "google/gemma-4-31b-it:free").split(",") if m.strip()]
+AI_MODEL_POOL = list(dict.fromkeys([OPENROUTER_MODEL, OPENROUTER_CHAT_MODEL, *OPENROUTER_FALLBACK_MODELS]))
 APP_SECRET_KEY    = (os.getenv("APP_SECRET_KEY") or "").strip()
 APP_BASE_URL      = (os.getenv("APP_BASE_URL") or "").strip().rstrip("/")
 
@@ -810,16 +813,18 @@ class AIError(Exception):
     pass
 
 
-def call_openrouter(messages, *, max_tokens, timeout, json_mode=False, temperature=0.8):
+def call_openrouter(messages, *, max_tokens, timeout, json_mode=False, temperature=0.8, model=None):
     _require_config(("OPENROUTER_API_KEY", OPENROUTER_KEY))
+    primary = model or OPENROUTER_MODEL
     payload = {
-        "model": OPENROUTER_MODEL,
+        "model": primary,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    if OPENROUTER_FALLBACK_MODELS:
-        payload["models"] = [OPENROUTER_MODEL, *OPENROUTER_FALLBACK_MODELS]
+    models = [primary, *[m for m in AI_MODEL_POOL if m != primary]][:3]
+    if len(models) > 1:
+        payload["models"] = models
     # Free models are often "reasoning" models: hidden thinking can eat the whole
     # token budget (empty answer) and doubles latency. Voya doesn't need it.
     payload["reasoning"] = {"enabled": False}
@@ -849,7 +854,7 @@ def call_openrouter(messages, *, max_tokens, timeout, json_mode=False, temperatu
         content = data["choices"][0]["message"]["content"]
     except (ValueError, KeyError, IndexError, TypeError):
         raise AIError("malformed response")
-    if data.get("model") and data["model"] != OPENROUTER_MODEL:
+    if data.get("model") and data["model"] != primary:
         log.info("OpenRouter answered with fallback model %s", data["model"])
     if not content or not content.strip():
         raise AIError("empty response")
@@ -884,7 +889,7 @@ def api_chat():
     messages.append({"role": "user", "content": message})
 
     try:
-        reply = call_openrouter(messages, max_tokens=400, timeout=CHAT_TIMEOUT_S)
+        reply = call_openrouter(messages, max_tokens=400, timeout=CHAT_TIMEOUT_S, model=OPENROUTER_CHAT_MODEL)
     except AIError as e:
         log.warning("chat failed: %s", e)
         raise ApiError("Voya AI couldn't answer right now. Please try again in a moment.", 502)

@@ -91,7 +91,8 @@ python backend/app.py     # → http://localhost:5001
 | `SUPABASE_URL` | Supabase → Project Settings → Data API → Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys → **secret** key (server-side only) |
 | `OPENROUTER_API_KEY` | https://openrouter.ai/keys |
-| `OPENROUTER_MODEL` | Optional, defaults to `nvidia/nemotron-3-ultra-550b-a55b:free` |
+| `OPENROUTER_MODEL` | Optional. Model for itineraries; defaults to `nvidia/nemotron-3-ultra-550b-a55b:free` |
+| `OPENROUTER_CHAT_MODEL` | Optional. Faster model tried first for chat; defaults to `nvidia/nemotron-3.5-super-vl:free` |
 | `OPENROUTER_FALLBACK_MODELS` | Optional, comma-separated backups used when the main model is rate-limited (default `google/gemma-4-31b-it:free`) |
 | `GEOAPIFY_API_KEY` | Not used yet; reserved for the upcoming places search (free tier) |
 | `APP_SECRET_KEY` | `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
